@@ -119,6 +119,29 @@ assert_contains "${remove_out}" "CHANGED" "remove-legacy-vibeguard-mcp reports c
 assert_cmd "legacy vibeguard mcp tables removed recursively" bash -c "! grep -qE '^\[mcp_servers\\.vibeguard([.]|\\])' '${CONFIG_FILE}'"
 assert_cmd "non-legacy tables remain after recursive cleanup" grep -Eq '^\[other\]$' "${CONFIG_FILE}"
 
+cat > "${CONFIG_FILE}" <<'TOML'
+[features]
+codex_hooks = true
+TOML
+check_ok_out="$(python3 "${CODEX_CONFIG_HELPER}" check-codex-hooks --config-file "${CONFIG_FILE}")"
+assert_contains "${check_ok_out}" "OK" "check-codex-hooks accepts valid TOML with feature enabled"
+
+cat > "${CONFIG_FILE}" <<'TOML'
+[features]
+codex_hooks = true
+broken = [
+TOML
+check_invalid_out="$(python3 "${CODEX_CONFIG_HELPER}" check-codex-hooks --config-file "${CONFIG_FILE}" || true)"
+assert_contains "${check_invalid_out}" "INVALID" "check-codex-hooks rejects malformed TOML"
+
+python3 - <<'PY' "${CONFIG_FILE}"
+from pathlib import Path
+import sys
+Path(sys.argv[1]).write_bytes(b'[features]\ncodex_hooks = true\n\xff')
+PY
+check_invalid_utf8_out="$(python3 "${CODEX_CONFIG_HELPER}" check-codex-hooks --config-file "${CONFIG_FILE}" || true)"
+assert_contains "${check_invalid_utf8_out}" "INVALID" "check-codex-hooks rejects invalid UTF-8"
+
 header "doc freshness installed drift"
 EMPTY_HOME="${TMP_DIR}/empty-home"
 mkdir -p "${EMPTY_HOME}/.claude/rules/vibeguard"
