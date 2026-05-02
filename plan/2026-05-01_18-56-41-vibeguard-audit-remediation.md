@@ -7,17 +7,18 @@ planning_method: plan-mode+plan-flow
 created_at: 2026-05-01T18:56:41+08:00
 source_spec: plan/spec-codebase-audit-remediation.md
 source_audit: docs/internal/research/2026-05-01-codebase-audit.md
-status: planned
+status: completed
+completed_at: 2026-05-02T11:02:37+08:00
 ---
 
 # Plan: VibeGuard Audit Remediation
 
 - Planned version: v1
 - Applicable repository: `/Users/apple/Desktop/code/AI/tool/vibeguard`
-- Current baseline: `main...origin/main`
-- Current local state: audit/SPEC docs are untracked; `mcp-server/` is also untracked
+- Current baseline: `main` at `92d948d`
+- Current local state: clean after PR #154 merge
 - Execution mode: change one step -> run directed tests -> run health check -> update this plan -> continue
-- Submission strategy: `milestone` for P0, then `per_step` for higher-risk architectural changes
+- Submission strategy: completed via incremental PRs, ending with PR #154
 
 ## 0. Objective And Boundaries
 
@@ -1202,12 +1203,13 @@ Append entries here after each implemented step.
   - Final regression matrix: `passed`
     - `bash setup.sh --check` -> pass exit 0.
     - `bash tests/test_hooks.sh` -> pass, all hook shards.
-    - `bash tests/test_setup.sh` -> pass, 141/141.
+    - `bash tests/test_setup.sh` -> pass, 155/155.
     - `bash tests/test_codex_runtime.sh` -> pass, 40/40.
     - `bash tests/test_gc_logs_concurrent.sh` -> pass, 13/13.
     - `bash tests/test_gc_config.sh` -> pass, 7/7.
-    - `cargo fmt --manifest-path vg-helper/Cargo.toml --check && cargo test --manifest-path vg-helper/Cargo.toml` -> pass, 49/49.
-    - `python3 -m unittest scripts/test_constraint_recommender.py eval/test_run_eval.py` -> pass, 10/10.
+    - `(cd vg-helper && cargo test)` -> pass, 65/65.
+    - `uv run python -m pytest eval scripts` -> unavailable: `/Users/apple/.local/share/uv/python/cpython-3.14.2-macos-aarch64-none/bin/python3.14: No module named pytest`.
+    - `uv run --with pytest python -m pytest eval/test_run_eval.py scripts/test_constraint_recommender.py` -> pass, 10/10.
     - `bash scripts/ci/self-application/run-all.sh` -> pass.
     - `bash tests/test_self_application_ci.sh` -> pass, 5/5.
     - `bash scripts/ci/check-event-schema-literals.sh` -> pass.
@@ -1215,6 +1217,6 @@ Append entries here after each implemented step.
     - `bash scripts/ci/validate-hooks.sh` -> pass.
     - `bash scripts/verify/check-test-file-sizes.sh` -> pass.
     - `bash tests/test_eval_contract.sh` -> pass, 3/3.
-    - `bash tests/test_manifest_contract.sh` -> pass, 35/35.
+    - `bash tests/test_manifest_contract.sh` -> pass, 43/43.
     - `bash scripts/ci/validate-manifest-contract.sh` -> pass.
 ```
