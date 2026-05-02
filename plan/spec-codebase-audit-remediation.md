@@ -1,6 +1,6 @@
 # SPEC: Codebase Audit Remediation (2026-05-01)
 
-**Status**: Draft for review
+**Status**: Implemented on `main` (completed 2026-05-02)
 **Author**: majiayu000
 **Date**: 2026-05-01
 **Closes**: codebase audit findings (see [`docs/internal/research/2026-05-01-codebase-audit.md`](../docs/internal/research/2026-05-01-codebase-audit.md))
@@ -14,6 +14,10 @@
 Eliminate the cluster of self-violations VibeGuard exhibits against rules it ships (SEC-13, U-29, U-22, U-16, U-24, U-26, W-18) and harden the multi-language pipeline so Python/Rust drift can no longer ship in production undetected.
 
 This SPEC is the actionable counterpart to the audit research file. It is structured by execution phase (P0 → P3) and by task. Each task uses the four-element format (Goal / Context / Constraints / Done-when) per `~/.claude/CLAUDE.md`.
+
+## Implementation Result
+
+All P0-P3 execution-plan steps are complete on `main` through PR #154. The implementation record and command-level evidence live in [`plan/2026-05-01_18-56-41-vibeguard-audit-remediation.md`](./2026-05-01_18-56-41-vibeguard-audit-remediation.md).
 
 ## Non-goals
 
@@ -520,11 +524,14 @@ Each command must exit 0 with output captured in this session (W-16: verificatio
 
 ## Acceptance
 
-This SPEC is accepted when:
+Accepted on `main` after the full remediation plan reached P3.6 and the final release matrix passed:
 
-1. The remediation owner (TBD) checks each P0 task off in this file with a commit reference.
-2. P0 verification matrix runs green on `main`.
-3. P1 tasks are ticketed (one issue per task or a single tracking issue with sub-tasks).
-4. P2/P3 are scheduled into the issue tracker with the same severity tags as in the audit.
+1. `bash setup.sh --check`
+2. `bash tests/test_hooks.sh`
+3. `bash tests/test_setup.sh`
+4. `bash tests/test_codex_runtime.sh`
+5. `(cd vg-helper && cargo test)`
+6. `uv run --with pytest python -m pytest eval/test_run_eval.py scripts/test_constraint_recommender.py`
+7. `bash scripts/ci/self-application/run-all.sh`
 
-Estimated total work: P0 ~3-5 days; P1 ~1 week; P2 ~2 weeks; P3 ongoing. Total ~4-6 weeks for full remediation including review.
+The only deferred items left in this SPEC are explicit product or historical-data boundaries, not unresolved audit bugs.
