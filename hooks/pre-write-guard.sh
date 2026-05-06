@@ -12,14 +12,23 @@
 set -euo pipefail
 
 source "$(dirname "$0")/log.sh"
+source "$(dirname "$0")/circuit-breaker.sh"
 vg_start_timer
+
+# Helper: a write that does not trigger a new-source advisory should reset the
+# warn-mode breaker so its count tracks consecutive batched-source writes, not
+# cumulative session-wide advisories.
+_pass_and_exit() {
+  vg_cb_record_pass "pre-write-guard"
+  exit 0
+}
 
 INPUT=$(cat)
 
 FILE_PATH=$(echo "$INPUT" | vg_json_field "tool_input.file_path")
 
 if [[ -z "$FILE_PATH" ]]; then
-  exit 0
+  _pass_and_exit
 fi
 
 # W-12: Block writes to test infrastructure files (new or existing)
@@ -106,7 +115,7 @@ fi
 
 # File already exists (edit) → Release
 if [[ -e "$FILE_PATH" ]]; then
-  exit 0
+  _pass_and_exit
 fi
 
 #Extract file name and extension
@@ -116,28 +125,33 @@ EXT="${BASENAME##*.}"
 # Release list: configuration, document, lock file, test file
 case "$BASENAME" in
   *.md|*.txt|*.json|*.yaml|*.yml|*.toml|*.lock|*.css|*.html|*.svg|*.png|*.jpg)
-    exit 0 ;;
+    _pass_and_exit ;;
   *.test.*|*.spec.*|*_test.*|*_spec.*)
-    exit 0 ;;
+    _pass_and_exit ;;
   test_*|spec_*)
-    exit 0 ;;
+    _pass_and_exit ;;
   .gitignore|.env*|Makefile|Dockerfile|*.sh)
-    exit 0 ;;
+    _pass_and_exit ;;
 esac
 
 # Release: files in the test directory
 case "$FILE_PATH" in
   */tests/*|*/test/*|*/__tests__/*|*/spec/*|*/fixtures/*|*/mocks/*)
-    exit 0 ;;
+    _pass_and_exit ;;
 esac
 
 # Source code file: check whether interception is required
 if ! vg_is_source_file "$FILE_PATH"; then
-  exit 0
+  _pass_and_exit
 fi
 
 # --- Source code files: reminder to search first and then write ---
-# Default warn (reminder), set VIBEGUARD_WRITE_MODE=block to upgrade to hard interception
+# Default warn (reminder), set VIBEGUARD_WRITE_MODE=block to upgrade to hard interception.
+#
+# Circuit breaker (warn mode): after CB_THRESHOLD consecutive notices in the same
+# session the circuit OPENs and subsequent writes pass silently. This prevents
+# 6-file batch writes from injecting 6 redundant advisories. Block mode does not
+# use the circuit breaker so hard rejections are never silenced.
 MODE="${VIBEGUARD_WRITE_MODE:-warn}"
 
 if [[ "$MODE" == "block" ]]; then
@@ -149,13 +163,18 @@ if [[ "$MODE" == "block" ]]; then
 }
 EOF
 else
-  vg_log "pre-write-guard" "Write" "warn" "New source file reminder" "$FILE_PATH"
-  cat <<'EOF'
+  source "$(dirname "$0")/circuit-breaker.sh"
+  if vg_cb_check "pre-write-guard"; then
+    vg_log "pre-write-guard" "Write" "warn" "New source file reminder" "$FILE_PATH"
+    vg_cb_record_block "pre-write-guard"
+    cat <<'EOF'
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
-    "additionalContext": "VIBEGUARD [L1] [review] [this-edit] OBSERVATION: new source file creation without prior search\nSCOPE: search before proceeding — use Grep for functions/classes/structs, Glob for same-named files\nACTION: REVIEW"
+    "additionalContext": "VIBEGUARD [L1] [advisory] [this-edit] OBSERVATION: new source file detected — search for similar implementation before adding duplicates\nSCOPE: if not yet checked, consider Grep for functions/classes/structs and Glob for same-named files\nACTION: NONE — advisory only, continue without acknowledgement"
   }
 }
 EOF
+  fi
+  # Circuit OPEN: silent pass (vg_cb_check already logged the auto-pass).
 fi
