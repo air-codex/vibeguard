@@ -26,7 +26,7 @@ git clone https://github.com/majiayu000/vibeguard.git ~/vibeguard
 bash ~/vibeguard/setup.sh
 ```
 
-Requires Python 3 and Rust/Cargo for the `vg-helper` runtime binary.
+Requires Python 3 and Rust/Cargo for the `vibeguard-runtime` runtime binary.
 
 Open a new Claude Code or Codex session. Run `bash ~/vibeguard/setup.sh --check` to verify.
 
@@ -121,7 +121,7 @@ Canonical references for this contract:
 
 ### Hooks — Real-Time Interception
 
-Most hooks trigger automatically during AI operations. `skills-loader` remains an optional manual hook, and Codex currently deploys only Bash/Stop hook events:
+Most hooks trigger automatically during AI operations. `skills-loader` remains an optional manual hook. Codex native hooks currently deploy only Bash/Stop hook events; the app-server wrapper adds external file-change and analysis-loop coverage for orchestrators that run through `codex app-server`.
 
 | Scenario | Hook | Result |
 |----------|------|--------|
@@ -288,7 +288,7 @@ which implies it) to make CI fail when the install is broken.
 
 VibeGuard deploys hooks and skills to both Claude Code and Codex CLI.
 
-Hooks live in `~/.codex/hooks.json` (requires `codex_hooks = true` in `config.toml`):
+Hooks live in `~/.codex/hooks.json` (requires `[features].codex_hooks = true` in `config.toml`):
 
 | Event | Hook | Function |
 |-------|------|----------|
@@ -306,13 +306,15 @@ Codex hook command names are namespaced as `vibeguard-*.sh` to avoid collisions 
 **App-server wrapper** (Symphony-style orchestrators):
 
 ```bash
-python3 ~/vibeguard/scripts/codex/app_server_wrapper.py --codex-command "codex app-server"
+~/.vibeguard/installed/bin/vibeguard-runtime codex-app-server-wrapper --repo-dir ~/vibeguard --codex-command "codex app-server"
 ```
 
-- `--strategy vibeguard` (default): applies pre/stop/post gates externally
+- `--strategy vibeguard` (default): applies strategy-based command, file-change, analysis-loop, and post-turn gates externally
 - `--strategy noop`: pure pass-through for debugging
-- App-server wrapper scope today: Bash approval interception + post-turn stop/build feedback with explicit `thread/session/turn` propagation
-- Still unsupported on app-server path: `pre-edit`, `pre-write`, `post-edit`, `post-write`, `analysis-paralysis`
+- Runtime: Rust-only via `vibeguard-runtime`; there is no Python app-server wrapper fallback.
+- App-server wrapper scope today: Bash approval interception; `applyPatchApproval` / `item/fileChange/requestApproval` file-change guards mapped to `pre-edit`, `pre-write`, `post-edit`, and `post-write`; proxy-native `analysis-paralysis` warnings for read-only command streaks; post-turn stop/build feedback with explicit `thread/session/turn` propagation.
+- Guard mode: `VIBEGUARD_CODEX_GUARD_MODE=guarded` by default. `decline` / `denied` tells Codex to continue the turn with a warning; `strict` upgrades file changes to `cancel` / `abort`; `advisory` emits warnings without blocking.
+- Still unsupported on native Codex hook path: Edit/Write matchers and Read/Glob/Grep analysis hooks. Use the app-server wrapper path when those gates are required.
 
 ### Use with any project
 

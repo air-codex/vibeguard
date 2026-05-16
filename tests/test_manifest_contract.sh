@@ -222,6 +222,13 @@ assert_contains "${check_ok_out}" "OK" "check-codex-hooks accepts valid TOML wit
 
 cat > "${CONFIG_FILE}" <<'TOML'
 [features]
+hooks = true
+TOML
+check_legacy_out="$(python3 "${CODEX_CONFIG_HELPER}" check-codex-hooks --config-file "${CONFIG_FILE}" || true)"
+assert_contains "${check_legacy_out}" "MISSING" "check-codex-hooks rejects legacy hooks feature key"
+
+cat > "${CONFIG_FILE}" <<'TOML'
+[features]
 codex_hooks = true
 broken = [
 TOML
