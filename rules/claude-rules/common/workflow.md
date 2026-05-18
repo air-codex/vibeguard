@@ -346,3 +346,33 @@ The vibeguard auto-gen region (between `<!-- vibeguard-start -->` and `<!-- vibe
 - Repeating U-29 / U-30 / U-31 full text in `CLAUDE.md` after vibeguard already loads them.
 - Adding 30+ prohibitions without paired `do` examples, then expecting the agent to remember which apply.
 - Embedding the full architecture diagram, directory tree, and shared infrastructure tables directly in `CLAUDE.md` instead of in a referenced architecture doc.
+
+## W-37: Agent learning must draw from successful and failed trajectories (strict)
+An agent memory or experience layer that feeds future inference must learn from both successful and failed trajectories. Success-only memory preserves happy paths but erases the decision boundaries that caused prior failures.
+
+**Sources** (2026-05):
+- Google Research, "ReasoningBank: Enabling agents to learn from experience" — describes a retrieval, extraction, and consolidation loop that distills insights from both successful and failed trajectories.
+- ReasoningBank paper and public implementation — failed trajectories are converted into preventative lessons and strategic guardrails before future retrieval.
+- W-18 baseline: trajectory quality matters, not only final output.
+- W-12 baseline: failed test trajectories are evidence, not noise.
+- U-26 baseline: if memory is a declared component, it must be wired into the retrieval path.
+
+**Rules**:
+1. Persistent memory or experience stores must record both successful and failed trajectories with explicit outcome flags.
+2. Failed trajectories must be extracted into named preventative lessons or strategic guardrails before they are pruned.
+3. Retrieval for a similar task must surface both success patterns and relevant failure lessons before the agent commits to a plan.
+4. Memory items must include enough trajectory metadata to diagnose reuse: tool calls, key decision points, outcome, and root cause when known.
+
+**Mechanical checks (agent execution rules)**:
+- Reject agent memory schemas that have no outcome or failure flag.
+- Reject retrieval designs that query only success exemplars when failure lessons exist for the same task class.
+- Reject pruning or retention policies that delete failed trajectories before extraction.
+- Report W-37 when a design claims "learning from experience" but stores only wins, final answers, or hand-picked exemplars.
+
+**Downgrade path**:
+For stateless single-turn agents with no persistent memory or experience retrieval, W-37 is vacuous. The design must state that the system is stateless; otherwise absence of failure memory is a gap, not a downgrade.
+
+**Anti-patterns**:
+- Keeping only "golden" traces because failed runs look messy.
+- Deleting failure logs immediately after fixing a bug, before extracting the decision boundary that caused it.
+- Treating failed tests, blocked tool calls, or rejected plans as disposable noise instead of learning material.
