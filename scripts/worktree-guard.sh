@@ -25,7 +25,31 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 # Default base sits next to the repo (<repo>.wt/) to keep the repo tree clean.
 # Override with VIBEGUARD_WORKTREE_BASE for external SSDs, alternate hosts, etc.
 WORKTREE_BASE="${VIBEGUARD_WORKTREE_BASE:-${REPO_ROOT}.wt}"
+LEGACY_WORKTREE_BASE="${REPO_ROOT}/.vibeguard/worktrees"
 ACTION="${1:-help}"
+
+same_path() {
+  [[ "${1%/}" == "${2%/}" ]]
+}
+
+resolve_worktree_path() {
+  local name="$1"
+  local path="${WORKTREE_BASE}/${name}"
+
+  if [[ -d "$path" ]]; then
+    printf '%s\n' "$path"
+    return 0
+  fi
+
+  local legacy_path="${LEGACY_WORKTREE_BASE}/${name}"
+  if ! same_path "$legacy_path" "$path" && [[ -d "$legacy_path" ]]; then
+    printf '%s\n' "$legacy_path"
+    return 0
+  fi
+
+  printf '%s\n' "$path"
+  return 1
+}
 
 case "$ACTION" in
   create)
@@ -52,29 +76,43 @@ case "$ACTION" in
     ;;
 
   list)
-    LIST_BASE="${WORKTREE_BASE%/}"
-    if [[ -d "$LIST_BASE" ]]; then
-      LIST_BASE="$(cd "$LIST_BASE" && pwd -P)"
+    LIST_BASES=()
+
+    for base in "$WORKTREE_BASE" "$LEGACY_WORKTREE_BASE"; do
+      duplicate=0
+      for existing in "${LIST_BASES[@]}"; do
+        if same_path "$base" "$existing"; then
+          duplicate=1
+          break
+        fi
+      done
+
+      if [[ "$duplicate" -eq 0 && -d "$base" ]]; then
+        LIST_BASES+=("$(cd "$base" && pwd -P)")
+      fi
+    done
+
+    found=0
+    if [[ "${#LIST_BASES[@]}" -gt 0 ]]; then
+      while IFS= read -r line; do
+        [[ "$line" == worktree\ * ]] || continue
+        path="${line#worktree }"
+        for base in "${LIST_BASES[@]}"; do
+          if [[ "$path" == "$base" || "$path" == "$base"/* ]]; then
+            echo "$path"
+            found=1
+            break
+          fi
+        done
+      done < <(git worktree list --porcelain)
     fi
 
-    git worktree list --porcelain \
-      | awk -v base="$LIST_BASE" '
-          /^worktree / {
-            path = substr($0, 10)
-            if (path == base || index(path, base "/") == 1) {
-              print path
-              found = 1
-            }
-          }
-          END { exit found ? 0 : 1 }
-        ' \
-      || yellow "No active VibeGuard worktree"
+    [[ "$found" -eq 1 ]] || yellow "No active VibeGuard worktree"
     ;;
 
   status)
     NAME="${2:?Usage: worktree-guard.sh status <name>}"
-    WORKTREE_PATH="${WORKTREE_BASE}/${NAME}"
-    if [[ ! -d "$WORKTREE_PATH" ]]; then
+    if ! WORKTREE_PATH="$(resolve_worktree_path "$NAME")"; then
       red "Error: worktree does not exist: ${WORKTREE_PATH}"
       exit 1
     fi
@@ -90,9 +128,8 @@ case "$ACTION" in
   merge)
     NAME="${2:?Usage: worktree-guard.sh merge <name>}"
     BRANCH="vg/${NAME}"
-    WORKTREE_PATH="${WORKTREE_BASE}/${NAME}"
 
-    if [[ ! -d "$WORKTREE_PATH" ]]; then
+    if ! WORKTREE_PATH="$(resolve_worktree_path "$NAME")"; then
       red "Error: worktree does not exist: ${WORKTREE_PATH}"
       exit 1
     fi
@@ -115,9 +152,8 @@ case "$ACTION" in
   remove)
     NAME="${2:?Usage: worktree-guard.sh remove <name>}"
     BRANCH="vg/${NAME}"
-    WORKTREE_PATH="${WORKTREE_BASE}/${NAME}"
 
-    if [[ -d "$WORKTREE_PATH" ]]; then
+    if WORKTREE_PATH="$(resolve_worktree_path "$NAME")"; then
       git worktree remove "$WORKTREE_PATH" --force
       green "Deleted worktree: ${WORKTREE_PATH}"
     else
