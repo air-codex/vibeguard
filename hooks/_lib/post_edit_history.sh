@@ -86,6 +86,17 @@ DO NOT: Continue parallel/background edits to this file without explicit ownersh
 vg_post_edit_detect_w15_loop() {
   [[ "${VIBEGUARD_SUPPRESS_W15:-0}" == "1" ]] && return 0
 
+  # Known FP class: documentation / notes / changelog edits naturally
+  # produce a sequence of small same-file appends (e.g. daily TODO lists)
+  # that the spec already calls out as a known weakness. Skip these paths.
+  # Override the skip by unsetting VIBEGUARD_W15_SKIP_DOCS=0.
+  if [[ "${VIBEGUARD_W15_SKIP_DOCS:-1}" == "1" ]]; then
+    case "$FILE_PATH" in
+      *.md|*.markdown|*.rst|*.txt|*.adoc) return 0 ;;
+      */notes/*|*/docs/daily/*|*/CHANGELOG*|*/TODO*|*/HISTORY*) return 0 ;;
+    esac
+  fi
+
   local current_delta past_consecutive past_deltas raw
   current_delta="${VG_W15_CURRENT_DELTA:-0}"
 
