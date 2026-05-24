@@ -22,7 +22,9 @@ if ! git rev-parse --is-inside-work-tree &>/dev/null; then
 fi
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
-WORKTREE_BASE="${REPO_ROOT}/.vibeguard/worktrees"
+# Default base sits next to the repo (<repo>.wt/) to keep the repo tree clean.
+# Override with VIBEGUARD_WORKTREE_BASE for external SSDs, alternate hosts, etc.
+WORKTREE_BASE="${VIBEGUARD_WORKTREE_BASE:-${REPO_ROOT}.wt}"
 ACTION="${1:-help}"
 
 case "$ACTION" in
