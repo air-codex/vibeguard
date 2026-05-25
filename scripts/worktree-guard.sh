@@ -102,7 +102,8 @@ case "$ACTION" in
 
     for base in "$WORKTREE_BASE" "$LEGACY_WORKTREE_BASE"; do
       duplicate=0
-      for existing in "${LIST_BASES[@]}"; do
+      # ${arr[@]+...} idiom so empty arrays don't trip `set -u` on bash 3.2.
+      for existing in ${LIST_BASES[@]+"${LIST_BASES[@]}"}; do
         if same_path "$base" "$existing"; then
           duplicate=1
           break
