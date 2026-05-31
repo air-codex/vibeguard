@@ -11,6 +11,11 @@ from pathlib import Path
 
 repo_root = Path(sys.argv[1]).resolve()
 targets = [repo_root / "README.md", repo_root / "docs" / "README_CN.md", repo_root / "CONTRIBUTING.md"]
+command_doc_targets = []
+for command_dir in (repo_root / ".claude" / "commands" / "vibeguard", repo_root / ".claude" / "commands" / "vg"):
+    command_doc_targets.extend(sorted(command_dir.glob("*.md")))
+targets.extend(command_doc_targets)
+
 renamed_targets = [
     repo_root / "README.md",
     repo_root / "CONTRIBUTING.md",
@@ -18,7 +23,7 @@ renamed_targets = [
     repo_root / "scripts" / "CLAUDE.md",
 ]
 renamed_targets.extend(sorted((repo_root / "workflows").rglob("*.md")))
-renamed_targets.extend(sorted((repo_root / ".claude" / "commands" / "vibeguard").glob("*.md")))
+renamed_targets.extend(command_doc_targets)
 
 renamed_command_paths = {
     "scripts/compliance_check.sh": "scripts/verify/compliance_check.sh",

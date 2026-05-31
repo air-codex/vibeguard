@@ -474,6 +474,26 @@ MD
 assert_fails_with "stale compliance check command path fails validation" "scripts/verify/compliance_check.sh" \
   bash "${REPO_DIR}/scripts/ci/validate-doc-command-paths.sh" "${COMMAND_PATH_FIXTURE}"
 
+COMMAND_DOC_PATH_FIXTURE="${TMP_DIR}/command-doc-path"
+mkdir -p \
+  "${COMMAND_DOC_PATH_FIXTURE}/.claude/commands/vibeguard" \
+  "${COMMAND_DOC_PATH_FIXTURE}/.claude/commands/vg"
+cat > "${COMMAND_DOC_PATH_FIXTURE}/.claude/commands/vibeguard/bad.md" <<'MD'
+```bash
+python3 ~/vibeguard/scripts/does-not-exist.py
+```
+MD
+cat > "${COMMAND_DOC_PATH_FIXTURE}/.claude/commands/vg/bad.md" <<'MD'
+```bash
+bash ~/vibeguard/scripts/missing-shortcut.sh
+```
+MD
+command_doc_path_out="$(
+  bash "${REPO_DIR}/scripts/ci/validate-doc-command-paths.sh" "${COMMAND_DOC_PATH_FIXTURE}" 2>&1 || true
+)"
+assert_contains "${command_doc_path_out}" ".claude/commands/vibeguard/bad.md" "full command doc missing path fails validation"
+assert_contains "${command_doc_path_out}" ".claude/commands/vg/bad.md" "shortcut command doc missing path fails validation"
+
 echo
 echo "=============================="
 printf "Total: %d  Pass: \033[32m%d\033[0m  Fail: \033[31m%d\033[0m\n" "$TOTAL" "$PASS" "$FAIL"
