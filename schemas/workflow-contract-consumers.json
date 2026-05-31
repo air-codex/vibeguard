@@ -56,6 +56,11 @@
       "requires": ["routing_decision", "execution_handoff", "delegation_assignment", "lane_map", "verification_gate"]
     },
     {
+      "path": ".claude/commands/vibeguard/preflight.md",
+      "references": ["routing-contract.md"],
+      "requires": ["routing_decision"]
+    },
+    {
       "path": "workflows/fixflow/SKILL.md",
       "references": ["routing-contract.md", "delegation-contract.md"],
       "requires": ["routing_decision", "execution_handoff", "lane_map", "verification_gate"]
