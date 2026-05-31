@@ -55,6 +55,40 @@ _install_claude_skill_link() {
   green "  ${skill} -> ~/.claude/skills/${skill}"
 }
 
+_check_command_symlink() {
+  local link="$1" expected_target="$2" label="$3"
+  if [[ -L "${link}" ]]; then
+    local actual_target
+    actual_target="$(readlink "${link}")"
+    if [[ ! -e "${link}" ]]; then
+      red "[BROKEN] ${label} symlink target missing: ${actual_target}"
+    elif [[ "${actual_target}" != "${expected_target}" ]]; then
+      red "[BROKEN] ${label} symlink target drift: ${actual_target} (expected: ${expected_target})"
+    else
+      green "[OK] ${label} symlinked to ~/.claude/commands/"
+    fi
+  elif [[ -e "${link}" ]]; then
+    red "[BROKEN] ${label} path is not a symlink: ${link}"
+  else
+    red "[MISSING] ${label} not in ~/.claude/commands/"
+  fi
+}
+
+_clean_command_symlink_if_managed() {
+  local link="$1" expected_target="$2" label="$3"
+  if [[ -L "${link}" ]]; then
+    local actual_target
+    actual_target="$(readlink "${link}")"
+    if [[ "${actual_target}" == "${expected_target}" ]]; then
+      rm -f "${link}" 2>/dev/null || true
+    else
+      yellow "Preserved unmanaged ${label} symlink: ${link} -> ${actual_target}"
+    fi
+  elif [[ -e "${link}" ]]; then
+    yellow "Preserved unmanaged ${label} path: ${link}"
+  fi
+}
+
 install_claude_home_assets() {
   echo "Step 2: Install Claude Code skills"
   install_manifest_skills "~/.claude/skills/" "${CLAUDE_DIR}/skills" _install_claude_skill_link || return 1
@@ -82,6 +116,9 @@ install_claude_home_assets() {
   safe_symlink "${REPO_DIR}/.claude/commands/vibeguard" "${CLAUDE_DIR}/commands/vibeguard"
   state_record_file "${CLAUDE_DIR}/commands/vibeguard" ".claude/commands/vibeguard" "symlink"
   green "  vibeguard commands -> ~/.claude/commands/vibeguard"
+  safe_symlink "${REPO_DIR}/.claude/commands/vg" "${CLAUDE_DIR}/commands/vg"
+  state_record_file "${CLAUDE_DIR}/commands/vg" ".claude/commands/vg" "symlink"
+  green "  vg shortcut commands -> ~/.claude/commands/vg"
   echo
 
   echo "Step 5.5: Install native rules (symlinked)"
@@ -243,11 +280,14 @@ check_claude_home_installation() {
     fi
   done <<< "${skill_links}"
 
-  if [[ -L "${CLAUDE_DIR}/commands/vibeguard" ]]; then
-    green "[OK] vibeguard commands symlinked to ~/.claude/commands/"
-  else
-    red "[MISSING] vibeguard commands not in ~/.claude/commands/"
-  fi
+  _check_command_symlink \
+    "${CLAUDE_DIR}/commands/vibeguard" \
+    "${REPO_DIR}/.claude/commands/vibeguard" \
+    "vibeguard commands"
+  _check_command_symlink \
+    "${CLAUDE_DIR}/commands/vg" \
+    "${REPO_DIR}/.claude/commands/vg" \
+    "vg shortcut commands"
 
   local expected_agent_count=0 missing_agent_count=0 unmanaged_agent_count=0
   local missing_agents="" unmanaged_agents="" agent name installed_agent
@@ -361,7 +401,14 @@ clean_claude_home_installation() {
     esac
   fi
 
-  rm -f "${CLAUDE_DIR}/commands/vibeguard" 2>/dev/null || rm -rf "${CLAUDE_DIR}/commands/vibeguard" 2>/dev/null || true
+  _clean_command_symlink_if_managed \
+    "${CLAUDE_DIR}/commands/vibeguard" \
+    "${REPO_DIR}/.claude/commands/vibeguard" \
+    "vibeguard commands"
+  _clean_command_symlink_if_managed \
+    "${CLAUDE_DIR}/commands/vg" \
+    "${REPO_DIR}/.claude/commands/vg" \
+    "vg shortcut commands"
   local skill_links source_path skill
   skill_links="$(manifest_skill_links_for_cleanup "~/.claude/skills/")"
   while IFS=$'\t' read -r source_path skill; do

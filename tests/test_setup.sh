@@ -431,7 +431,8 @@ mkdir -p \
   "${broken_clean_home}/.claude/rules/vibeguard/common" \
   "${broken_clean_home}/.codex" \
   "${broken_clean_home}/.vibeguard"
-touch "${broken_clean_home}/.claude/commands/vibeguard"
+ln -s "${REPO_DIR}/.claude/commands/vibeguard" "${broken_clean_home}/.claude/commands/vibeguard"
+ln -s "${REPO_DIR}/.claude/commands/vg" "${broken_clean_home}/.claude/commands/vg"
 touch "${broken_clean_home}/.claude/agents/dispatcher.md"
 touch "${broken_clean_home}/.claude/context-profiles/dev.md"
 touch "${broken_clean_home}/.claude/rules/vibeguard/common/security.md"
@@ -457,12 +458,31 @@ broken_clean_out="$(
 )"
 assert_contains "${broken_clean_out}" "skipping skill link cleanup" "clean warns when manifest skill enumeration fails"
 assert_cmd "clean continues after Claude manifest failure" test ! -e "${broken_clean_home}/.claude/commands/vibeguard"
+assert_cmd "clean removes Claude vg shortcut commands after manifest failure" test ! -e "${broken_clean_home}/.claude/commands/vg"
 assert_cmd "clean removes Claude agents after manifest failure" test ! -e "${broken_clean_home}/.claude/agents/dispatcher.md"
 assert_cmd "clean removes Claude rules after manifest failure" test ! -e "${broken_clean_home}/.claude/rules/vibeguard"
 assert_cmd "clean removes Claude hooks after manifest failure" bash -c "! grep -q 'pre-bash-guard.sh' '${broken_clean_home}/.claude/settings.json'"
 assert_cmd "clean continues after Codex manifest failure" bash -c "! grep -q 'vibeguard-pre-bash-guard.sh' '${broken_clean_home}/.codex/hooks.json'"
 assert_cmd "clean removes Codex wrapper after manifest failure" test ! -e "${broken_clean_home}/.vibeguard/run-hook-codex.sh"
 assert_cmd "clean removes legacy Codex MCP after manifest failure" bash -c "! grep -q '^\[mcp_servers\.vibeguard\]' '${broken_clean_home}/.codex/config.toml'"
+
+header "clean preserves unmanaged Claude command paths"
+unmanaged_commands_home="${TMP_HOME}/unmanaged-commands-home"
+mkdir -p \
+  "${unmanaged_commands_home}/.claude/commands/vg" \
+  "${unmanaged_commands_home}/.vibeguard"
+printf 'custom shortcut\n' > "${unmanaged_commands_home}/.claude/commands/vg/custom.md"
+unmanaged_commands_clean_out="$(
+  HOME="${unmanaged_commands_home}" bash -c "
+    set -euo pipefail
+    source '${REPO_DIR}/scripts/setup/lib.sh'
+    source '${REPO_DIR}/scripts/lib/install-state.sh'
+    source '${REPO_DIR}/scripts/setup/targets/claude-home.sh'
+    clean_claude_home_installation
+  " 2>&1
+)"
+assert_contains "${unmanaged_commands_clean_out}" "Preserved unmanaged vg shortcut commands path" "clean warns before preserving unmanaged vg commands directory"
+assert_cmd "clean preserves unmanaged vg commands directory" test -f "${unmanaged_commands_home}/.claude/commands/vg/custom.md"
 
 header "retired manifest skill cleanup"
 retired_home="${TMP_HOME}/retired-skill-home"
@@ -680,6 +700,7 @@ assert_contains "${install_out}" "Setup complete! All components installed." "De
 assert_contains "${install_out}" "Removed retired VibeGuard skill link" "setup install removes tracked retired skill links"
 assert_cmd "setup install removes tracked retired Claude skill" test ! -L "${HOME}/.claude/skills/old-retired"
 assert_cmd "setup install removes tracked retired Codex skill" test ! -L "${HOME}/.codex/skills/old-flow"
+assert_cmd "vg shortcut commands are installed after setup" test -L "${HOME}/.claude/commands/vg"
 assert_cmd "vibeguard-runtime binary installed after setup" test -x "${HOME}/.vibeguard/installed/bin/vibeguard-runtime"
 assert_cmd "runtime policy project schema installed after setup" test -f "${HOME}/.vibeguard/installed/schemas/vibeguard-project.schema.json"
 assert_cmd "runtime policy project validator installed after setup" test -f "${HOME}/.vibeguard/installed/scripts/lib/project_config_validate.py"
@@ -697,6 +718,21 @@ missing_managed_agent_check_out="$(bash "${REPO_DIR}/setup.sh" --check 2>&1 || t
 assert_contains "${missing_managed_agent_check_out}" "[MISSING] 1/${expected_agent_count} VibeGuard agent(s) missing in ~/.claude/agents/: dispatcher.md" "--check reports missing VibeGuard-managed agents"
 cp "${REPO_DIR}/agents/dispatcher.md" "${HOME}/.claude/agents/dispatcher.md"
 installed_git_hook_check_out="$(bash "${REPO_DIR}/setup.sh" --check)"
+assert_contains "${installed_git_hook_check_out}" "[OK] vg shortcut commands symlinked to ~/.claude/commands/" "--check reports vg shortcut commands healthy"
+rm -f "${HOME}/.claude/commands/vg"
+ln -s "${REPO_DIR}/.claude/commands/missing-vg" "${HOME}/.claude/commands/vg"
+broken_vg_commands_check_out="$(bash "${REPO_DIR}/setup.sh" --check 2>&1 || true)"
+assert_contains "${broken_vg_commands_check_out}" "[BROKEN] vg shortcut commands symlink target missing:" "--check reports broken vg shortcut commands symlink"
+rm -f "${HOME}/.claude/commands/vg"
+wrong_vg_commands_target="${TMP_HOME}/wrong-vg-commands"
+mkdir -p "${wrong_vg_commands_target}"
+ln -s "${wrong_vg_commands_target}" "${HOME}/.claude/commands/vg"
+drift_vg_commands_check_out="$(bash "${REPO_DIR}/setup.sh" --check 2>&1 || true)"
+assert_contains "${drift_vg_commands_check_out}" "[BROKEN] vg shortcut commands symlink target drift:" "--check reports vg shortcut commands target drift"
+rm -f "${HOME}/.claude/commands/vg"
+missing_vg_commands_check_out="$(bash "${REPO_DIR}/setup.sh" --check 2>&1 || true)"
+assert_contains "${missing_vg_commands_check_out}" "[MISSING] vg shortcut commands not in ~/.claude/commands/" "--check reports missing vg shortcut commands"
+ln -s "${REPO_DIR}/.claude/commands/vg" "${HOME}/.claude/commands/vg"
 assert_contains "${installed_git_hook_check_out}" "[OK] VibeGuard repo pre-commit hook installed" "--check reports repo pre-commit hook healthy"
 assert_contains "${installed_git_hook_check_out}" "[OK] VibeGuard repo pre-push hook installed" "--check reports repo pre-push hook healthy"
 fake_wrapper_repo="${TMP_HOME}/fake-wrapper-repo"
@@ -1034,6 +1070,8 @@ printf 'user codex note\n' >> "${HOME}/.codex/AGENTS.md"
 clean_out="$(bash "${REPO_DIR}/setup.sh" --clean)"
 assert_contains "${clean_out}" "VibeGuard cleaned." "--clean route to cleanup process"
 assert_cmd "~/.claude/skills/vibeguard has been removed after cleaning" test ! -e "${HOME}/.claude/skills/vibeguard"
+assert_cmd "~/.claude/commands/vibeguard has been removed after cleaning" test ! -e "${HOME}/.claude/commands/vibeguard"
+assert_cmd "~/.claude/commands/vg has been removed after cleaning" test ! -e "${HOME}/.claude/commands/vg"
 assert_cmd "~/.claude/skills/agentsmd-audit has been removed after cleaning" test ! -e "${HOME}/.claude/skills/agentsmd-audit"
 assert_cmd "~/.claude/skills/trajectory-review has been removed after cleaning" test ! -e "${HOME}/.claude/skills/trajectory-review"
 assert_cmd "~/.codex/skills/agentsmd-audit has been removed after cleaning" test ! -e "${HOME}/.codex/skills/agentsmd-audit"

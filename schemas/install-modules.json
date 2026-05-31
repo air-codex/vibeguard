@@ -197,8 +197,11 @@
     {
       "id": "commands",
       "kind": "commands",
-      "description": "VibeGuard slash commands (12 commands)",
-      "paths": [".claude/commands/vibeguard/"],
+      "description": "VibeGuard slash commands and /vg shortcuts",
+      "paths": [
+        ".claude/commands/vibeguard/",
+        ".claude/commands/vg/"
+      ],
       "target": "~/.claude/commands/",
       "defaultInstall": true,
       "cost": "light",
