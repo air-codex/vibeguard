@@ -343,7 +343,7 @@
 [14.86111, "o", "e"]
 [14.886879, "o", "\r\n"]
 [14.886888, "o", "\u001b[1;31m✗ git pre-push hook: blocked non-fast-forward push\u001b[0m\r\n"]
-[14.886906, "o", "  → use --force-with-lease only after explicit intent\r\n"]
+[14.886906, "o", "  → history rewrites require explicit human approval\r\n"]
 [15.894603, "o", "\r\n\u001b[1;34m── 4. Every finding ships with a fix instruction ──\u001b[0m\r\n"]
 [16.298231, "o", "$"]
 [16.327624, "o", " "]

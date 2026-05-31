@@ -95,7 +95,7 @@ VibeGuard 现在明确分成两层：
 | AI 创建或编辑超过 400 行的生产源码文件 | `pre-write-guard`、`pre-edit-guard`、`post-write-guard`、`post-edit-guard` | **告警**，提示已超过典型范围；当前改动保持局部，后续再规划拆分 |
 | AI 创建或编辑超过 800 行的生产源码文件 | `pre-write-guard`、`pre-edit-guard` | **拦截**，必须先拆分文件 |
 | AI 执行危险本地清理（危险路径 `rm -rf`、`git clean -f`、批量 `git checkout/restore .`） | `pre-bash-guard` | **拦截**，给出安全替代命令；如确实要清理本地改动，先运行 `python3 ~/vibeguard/scripts/authorized-discard.py --plan` 查看逐路径计划，再用确认短语执行 |
-| AI 推送非快进更新或删除远端分支 | git `pre-push` | **拦截**，保护远端历史；只有明确需要改写历史时才使用 `--force-with-lease` |
+| AI 推送非快进更新或删除远端分支 | git `pre-push` | **拦截**，保护远端历史；改写历史或删除远端分支需要明确人工批准，并按仓库旁路策略处理 |
 | AI 编辑一个不存在的文件 | `pre-edit-guard` | **拦截**，要求先读取文件确认 |
 | AI 编辑后引入 `unwrap()`、硬编码路径等问题 | `post-edit-guard` | **告警**，直接给修复建议 |
 | AI 编辑后留下 `console.log` / `print()` | `post-edit-guard` | **告警**，要求换成正式日志方案 |

@@ -72,7 +72,7 @@ AI:   → tries to create auth_service.py
       ✗ VibeGuard flags — use env var or secret manager
 
       → runs `git push --force`
-      ✗ VibeGuard git pre-push hook denies — use `--force-with-lease` only after explicit intent
+      ✗ VibeGuard git pre-push hook denies — history rewrites require explicit human approval
 
       → runs `git clean -fd`
       ✗ VibeGuard denies — points to an authorized discard workflow with an exact deletion plan
@@ -133,7 +133,7 @@ Most hooks trigger automatically during AI operations. `skills-loader` remains a
 | AI creates or edits production source above 400 lines | `pre-write-guard`, `pre-edit-guard`, `post-write-guard`, `post-edit-guard` | **Warn** — typical-size advisory; keep the current change localized and plan a later split if growth continues |
 | AI creates or edits production source above 800 lines | `pre-write-guard`, `pre-edit-guard` | **Block** — split the file before writing or patching |
 | AI runs destructive local cleanup (`rm -rf` dangerous paths, `git clean -f`, `git checkout/restore .`) | `pre-bash-guard` | **Block** — suggests safe alternatives and audited discard flow |
-| AI pushes a non-fast-forward update or branch deletion | git `pre-push` | **Block** — protects remote history; use `--force-with-lease` only after explicit intent |
+| AI pushes a non-fast-forward update or branch deletion | git `pre-push` | **Block** — protects remote history; rewrites and deletions require explicit human approval plus the repository bypass policy |
 | AI edits non-existent file | `pre-edit-guard` | **Block** — must Read file first |
 | AI adds `unwrap()`, hardcoded paths | `post-edit-guard` | **Warn** — with fix instructions |
 | AI adds `console.log` / `print()` debug statements | `post-edit-guard` | **Warn** — use logger instead |

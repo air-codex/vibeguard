@@ -12,7 +12,7 @@ require_absent() {
   local file="$1"
   local pattern="$2"
   local message="$3"
-  if grep -Fq "$pattern" "$file"; then
+  if grep -Fq -- "$pattern" "$file"; then
     echo "FAIL: ${message}" >&2
     failures=$((failures + 1))
   fi
@@ -22,7 +22,7 @@ require_present() {
   local file="$1"
   local pattern="$2"
   local message="$3"
-  if ! grep -Fq "$pattern" "$file"; then
+  if ! grep -Fq -- "$pattern" "$file"; then
     echo "FAIL: ${message}" >&2
     failures=$((failures + 1))
   fi
@@ -42,13 +42,17 @@ require_absent "README.md" 'Dangerous shell/git commands (`rm -rf`, `push --forc
   "README.md summary must not advertise reset/force-push as one pre-bash command bucket"
 require_present "README.md" 'Dangerous shell/git operations (`rm -rf` dangerous paths, `git clean -f`, non-fast-forward pushes)' \
   "README.md summary must describe current local-cleanup/pre-push split"
-require_present "README.md" 'VibeGuard git pre-push hook denies' \
+require_absent "README.md" 'VibeGuard git pre-push hook denies — use `--force-with-lease` only after explicit intent' \
+  "README.md example must not suggest force-with-lease, which pre-push still blocks"
+require_present "README.md" 'VibeGuard git pre-push hook denies — history rewrites require explicit human approval' \
   "README.md example must attribute force-push denial to git pre-push"
 require_present "README.md" '| AI creates new `.py/.ts/.rs/.go/.js` file | `pre-write-guard` | **Warn by default**' \
   "README.md must describe L1 new-source behavior as warn-by-default"
 require_absent "README.md" '| AI runs `git push --force`, `rm -rf`, `reset --hard` | `pre-bash-guard` | **Block**' \
   "README.md must not assign force-push protection to pre-bash-guard"
-require_present "README.md" '| AI pushes a non-fast-forward update or branch deletion | git `pre-push` | **Block**' \
+require_absent "README.md" '| AI pushes a non-fast-forward update or branch deletion | git `pre-push` | **Block** — protects remote history; use `--force-with-lease` only after explicit intent |' \
+  "README.md must not suggest force-with-lease, which pre-push still blocks"
+require_present "README.md" '| AI pushes a non-fast-forward update or branch deletion | git `pre-push` | **Block** — protects remote history; rewrites and deletions require explicit human approval plus the repository bypass policy |' \
   "README.md must assign force-push protection to git pre-push"
 require_present "README.md" '`pre-bash-guard` does not regex-match `git push --force`' \
   "README.md must make the pre-bash/pre-push boundary explicit"
@@ -69,7 +73,9 @@ require_present "docs/README_CN.md" '| AI 创建新的 `.py/.ts/.rs/.go/.js` 文
   "docs/README_CN.md must describe L1 new-source behavior as warn-by-default"
 require_absent "docs/README_CN.md" '| AI 执行 `git push --force`、`rm -rf`、`git clean -fd`、批量 `git checkout/restore .` | `pre-bash-guard`' \
   "docs/README_CN.md must not assign force-push protection to pre-bash-guard"
-require_present "docs/README_CN.md" '| AI 推送非快进更新或删除远端分支 | git `pre-push` | **拦截**' \
+require_absent "docs/README_CN.md" '| AI 推送非快进更新或删除远端分支 | git `pre-push` | **拦截**，保护远端历史；只有明确需要改写历史时才使用 `--force-with-lease` |' \
+  "docs/README_CN.md must not suggest force-with-lease, which pre-push still blocks"
+require_present "docs/README_CN.md" '| AI 推送非快进更新或删除远端分支 | git `pre-push` | **拦截**，保护远端历史；改写历史或删除远端分支需要明确人工批准，并按仓库旁路策略处理 |' \
   "docs/README_CN.md must assign force-push protection to git pre-push"
 require_present "docs/README_CN.md" 'git `pre-push` hook 负责非快进推送/删除远端分支保护；`pre-bash-guard` 不用正则匹配 `git push --force`' \
   "docs/README_CN.md setup prose must make the pre-bash/pre-push boundary explicit"
@@ -90,9 +96,15 @@ require_absent "docs/CLAUDE.md.example" '| `Write` creates a new source code fil
   "docs/CLAUDE.md.example must not describe L1 new-source behavior as default block"
 require_present "docs/CLAUDE.md.example" '| `Write` creates a new source code file | **Warn by default**' \
   "docs/CLAUDE.md.example must describe L1 new-source behavior as warn-by-default"
+require_present "hooks/manifest.json" '"decision_types": ["pass", "warn", "block", "escalate"],' \
+  "hooks manifest must include pre-write configured block/escalate decisions"
 require_absent "docs/CLAUDE.md.example" '| `Bash` force push / rm -rf / reset --hard | **Block**' \
   "docs/CLAUDE.md.example must not assign force-push protection to pre-bash"
-require_present "docs/CLAUDE.md.example" '| git `pre-push` detects non-fast-forward push / branch deletion | **Block**' \
+require_absent "docs/CLAUDE.md.example" '| git `pre-push` detects non-fast-forward push / branch deletion | **Block** — protects remote history; use `--force-with-lease` only after explicit intent |' \
+  "docs/CLAUDE.md.example must not suggest force-with-lease, which pre-push still blocks"
+require_absent "docs/CLAUDE.md.example" '- **Disable** force push — use `--force-with-lease`' \
+  "docs/CLAUDE.md.example L7 guidance must not suggest force-with-lease, which pre-push still blocks"
+require_present "docs/CLAUDE.md.example" '| git `pre-push` detects non-fast-forward push / branch deletion | **Block** — protects remote history; rewrites and deletions require explicit human approval plus the repository bypass policy |' \
   "docs/CLAUDE.md.example must assign force-push protection to git pre-push"
 
 require_absent "scripts/setup/install.sh" 'Stop Gate' \
@@ -110,11 +122,27 @@ require_present "hooks/CLAUDE.md" '| `stop-guard.sh` | Stop | Record uncommitted
   "generated hook docs must describe stop-guard as a non-blocking Stop signal"
 require_present "hooks/CLAUDE.md" '| `pre-bash-guard.sh` | PreToolUse(Bash) | Intercept destructive local cleanup commands:' \
   "generated hook docs must describe pre-bash local cleanup scope"
+require_absent "hooks/git/pre-push" 'Use --force-with-lease if you intentionally need to rewrite history.' \
+  "git pre-push hook must not suggest force-with-lease, which it still blocks"
+require_present "hooks/git/pre-push" 'VibeGuard blocks history rewrites by default; do not retry with --force or --force-with-lease from an agent.' \
+  "git pre-push hook must explain that history rewrites remain blocked by default"
 
 require_absent "docs/assets/demo-scenario.sh" 'pre-bash-guard: blocked `git push --force`' \
   "demo script must not show force-push as pre-bash behavior"
+require_absent "docs/assets/demo-scenario.sh" 'use --force-with-lease only after explicit intent' \
+  "demo script must not suggest force-with-lease, which pre-push still blocks"
 require_present "docs/assets/demo-scenario.sh" 'git pre-push hook: blocked non-fast-forward push' \
   "demo script must show force-push as git pre-push behavior"
+require_present "docs/assets/demo-scenario.sh" 'history rewrites require explicit human approval' \
+  "demo script must describe the required human approval path"
+require_absent "docs/assets/demo.cast" 'pre-bash-guard: blocked `git push --force`' \
+  "demo cast must not show force-push as pre-bash behavior"
+require_absent "docs/assets/demo.cast" 'use --force-with-lease only after explicit intent' \
+  "demo cast must not suggest force-with-lease, which pre-push still blocks"
+require_present "docs/assets/demo.cast" 'git pre-push hook: blocked non-fast-forward push' \
+  "demo cast must show force-push as git pre-push behavior"
+require_present "docs/assets/demo.cast" 'history rewrites require explicit human approval' \
+  "demo cast must describe the required human approval path"
 
 require_present "scripts/setup/targets/claude-home.sh" 'Stop signal + Build check + Learn evaluator' \
   "setup status must avoid the old Stop gate wording"
