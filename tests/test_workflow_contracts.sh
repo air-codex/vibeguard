@@ -212,6 +212,17 @@ write_registry "${EXAMPLE_FIXTURE}" '"markdown_examples": [{"path": "docs/comman
 assert_fails_with "invalid command schema example fails schema validation" "maybe_later" \
   python3 "${HELPER}" --repo-dir "${EXAMPLE_FIXTURE}" --schema-dir "${EXAMPLE_FIXTURE}/schemas" --registry "${EXAMPLE_FIXTURE}/schemas/workflow-contract-consumers.json" validate
 
+header "workflow command path failures"
+COMMAND_PATH_FIXTURE="${TMP_DIR}/command-path"
+mkdir -p "${COMMAND_PATH_FIXTURE}/workflows/auto-optimize"
+cat > "${COMMAND_PATH_FIXTURE}/workflows/auto-optimize/SKILL.md" <<'MD'
+```bash
+bash "${VIBEGUARD_ROOT:-$(dirname "$0")/../..}/scripts/compliance_check.sh" /path/to/project
+```
+MD
+assert_fails_with "stale compliance check command path fails validation" "scripts/verify/compliance_check.sh" \
+  bash "${REPO_DIR}/scripts/ci/validate-doc-command-paths.sh" "${COMMAND_PATH_FIXTURE}"
+
 echo
 echo "=============================="
 printf "Total: %d  Pass: \033[32m%d\033[0m  Fail: \033[31m%d\033[0m\n" "$TOTAL" "$PASS" "$FAIL"

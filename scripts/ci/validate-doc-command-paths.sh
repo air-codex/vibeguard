@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# VibeGuard CI: validate shell command paths like ~/vibeguard/... in docs
+# VibeGuard CI: validate shell command paths in user-facing docs
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+REPO_DIR="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 
 python3 - "$REPO_DIR" <<'PY'
 import re
@@ -11,6 +11,18 @@ from pathlib import Path
 
 repo_root = Path(sys.argv[1]).resolve()
 targets = [repo_root / "README.md", repo_root / "docs" / "README_CN.md", repo_root / "CONTRIBUTING.md"]
+renamed_targets = [
+    repo_root / "README.md",
+    repo_root / "CONTRIBUTING.md",
+    repo_root / "docs" / "README_CN.md",
+    repo_root / "scripts" / "CLAUDE.md",
+]
+renamed_targets.extend(sorted((repo_root / "workflows").rglob("*.md")))
+renamed_targets.extend(sorted((repo_root / ".claude" / "commands" / "vibeguard").glob("*.md")))
+
+renamed_command_paths = {
+    "scripts/compliance_check.sh": "scripts/verify/compliance_check.sh",
+}
 
 path_pattern = re.compile(r"~/vibeguard/([A-Za-z0-9_./-]+)")
 failures = []
@@ -30,6 +42,16 @@ for md_file in targets:
             ok = target.is_dir() if raw.endswith("/") else target.is_file()
             if not ok:
                 failures.append(f"{md_file.relative_to(repo_root)}:{idx} ~/vibeguard/{raw} (missing)")
+
+for md_file in renamed_targets:
+    if not md_file.exists():
+        continue
+    for idx, line in enumerate(md_file.read_text(encoding="utf-8").splitlines(), 1):
+        for old_path, new_path in renamed_command_paths.items():
+            if old_path in line:
+                failures.append(
+                    f"{md_file.relative_to(repo_root)}:{idx} stale command path {old_path}; use {new_path}"
+                )
 
 if failures:
     print("FAIL: broken shell command path references detected:")
