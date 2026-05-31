@@ -119,7 +119,7 @@
       "config_exposure": {"disabled_hook": true},
       "trigger": "PostToolUse(Edit)",
       "responsibilities": "Detect quality problems after editing: unwrap, console.log, hard-coded path, Go error discard, oversized diff, repeated editing of the same file (churn), W-15 consecutive same-file edit loop.",
-      "decision_types": ["pass", "warn", "block"],
+      "decision_types": ["pass", "warn", "escalate", "correction"],
       "claude": {
         "enabled": true,
         "event": "PostToolUse",
@@ -143,7 +143,7 @@
       "config_exposure": {"disabled_hook": true},
       "trigger": "PostToolUse(Write)",
       "responsibilities": "Detect duplicate definitions and files with the same name after creating a new file.",
-      "decision_types": ["pass", "warn", "block"],
+      "decision_types": ["pass", "warn"],
       "claude": {
         "enabled": true,
         "event": "PostToolUse",
@@ -201,7 +201,7 @@
       "config_exposure": {"disabled_hook": true},
       "trigger": "PostToolUse(Edit/Write)",
       "responsibilities": "Automatically run the build check corresponding to the language after editing.",
-      "decision_types": ["pass", "warn", "block"],
+      "decision_types": ["pass", "warn", "escalate"],
       "claude": {
         "enabled": true,
         "event": "PostToolUse",
