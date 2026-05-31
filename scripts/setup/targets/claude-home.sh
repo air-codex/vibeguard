@@ -74,6 +74,59 @@ _check_command_symlink() {
   fi
 }
 
+_check_claude_skill_symlink() {
+  local link="$1" expected_target="$2" skill="$3"
+  if [[ -L "${link}" ]]; then
+    local actual_target
+    actual_target="$(readlink "${link}" 2>/dev/null || true)"
+    if [[ -z "${actual_target}" ]]; then
+      red "[BROKEN] ${skill} skill symlink target cannot be read: ${link}"
+    elif [[ "${actual_target}" != "${expected_target}" ]]; then
+      red "[BROKEN] ${skill} skill symlink target drift: ${actual_target} (expected: ${expected_target})"
+    elif [[ ! -e "${link}" ]]; then
+      red "[BROKEN] ${skill} skill symlink target missing: ${actual_target}"
+    else
+      green "[OK] ${skill} skill symlinked to ~/.claude/skills/"
+    fi
+  elif [[ -e "${link}" ]]; then
+    red "[BROKEN] ${skill} skill path is not a symlink: ${link}"
+  else
+    red "[MISSING] ${skill} skill not in ~/.claude/skills/"
+  fi
+}
+
+_check_claude_rule_symlink_targets() {
+  local rules_src="${REPO_DIR}/rules/claude-rules"
+  local rules_dest="${HOME}/.claude/rules/vibeguard"
+  local checked_count=0 broken_count=0
+  local subdir link name expected_target actual_target
+
+  for subdir in common rust golang typescript python; do
+    [[ -d "${rules_dest}/${subdir}" ]] || continue
+    for link in "${rules_dest}/${subdir}"/*.md; do
+      [[ -L "${link}" ]] || continue
+      checked_count=$((checked_count + 1))
+      name="$(basename "${link}")"
+      expected_target="${rules_src}/${subdir}/${name}"
+      actual_target="$(readlink "${link}" 2>/dev/null || true)"
+      if [[ -z "${actual_target}" ]]; then
+        red "[BROKEN] Native rule symlink target cannot be read: ${link}"
+        broken_count=$((broken_count + 1))
+      elif [[ "${actual_target}" != "${expected_target}" ]]; then
+        red "[BROKEN] Native rule symlink target drift: ${link} -> ${actual_target} (expected: ${expected_target})"
+        broken_count=$((broken_count + 1))
+      elif [[ ! -e "${link}" ]]; then
+        red "[BROKEN] Native rule symlink target missing: ${link} -> ${actual_target}"
+        broken_count=$((broken_count + 1))
+      fi
+    done
+  done
+
+  if [[ "${checked_count}" -gt 0 && "${broken_count}" -eq 0 ]]; then
+    green "[OK] Native rule symlink targets match current repo"
+  fi
+}
+
 _clean_command_symlink_if_managed() {
   local link="$1" expected_target="$2" label="$3"
   if [[ -L "${link}" ]]; then
@@ -269,15 +322,7 @@ check_claude_home_installation() {
   while IFS=$'\t' read -r source_path skill; do
     [[ -n "${source_path}" && -n "${skill}" ]] || continue
     link="${CLAUDE_DIR}/skills/${skill}"
-    if [[ -L "${link}" ]]; then
-      if [[ -e "${link}" ]]; then
-        green "[OK] ${skill} skill symlinked to ~/.claude/skills/"
-      else
-        red "[BROKEN] ${skill} symlink exists but target missing: $(readlink "${link}")"
-      fi
-    else
-      red "[MISSING] ${skill} skill not in ~/.claude/skills/"
-    fi
+    _check_claude_skill_symlink "${link}" "${REPO_DIR}/${source_path}" "${skill}"
   done <<< "${skill_links}"
 
   _check_command_symlink \
@@ -342,6 +387,7 @@ check_claude_home_installation() {
     if [[ "${copy_count}" -gt 0 ]]; then
       yellow "[DRIFT] ${copy_count} rule files are copies instead of symlinks — re-run setup.sh to fix"
     fi
+    _check_claude_rule_symlink_targets
 
     actual_rule_count=$(claude_rule_id_count "${rules_dest}")
     claude_md="${CLAUDE_DIR}/CLAUDE.md"
