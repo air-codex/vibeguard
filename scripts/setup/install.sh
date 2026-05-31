@@ -8,7 +8,7 @@ set -euo pipefail
 # bash install.sh # Install (default core)
 # bash install.sh --profile full # Install full (including Stop signal/Build Check)
 # bash install.sh --profile minimal # Minimal installation (pre-hooks only)
-# bash install.sh --profile strict # Strict mode (same hook set as full)
+# bash install.sh --profile strict # Strict mode (full hooks + U-32 SessionStart constraint budget)
 # bash install.sh --languages rust,python # Only install rules and guards for the specified language
 # bash install.sh --profile full --languages rust # Use in combination
 # bash install.sh --dry-run # Show high-context diffs without writing

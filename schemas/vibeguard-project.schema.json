@@ -8,7 +8,7 @@
       "type": "string",
       "enum": ["minimal", "core", "full", "strict"],
       "default": "core",
-      "description": "Runtime enforcement profile. minimal=pre-hooks only, core=standard runtime hooks, full=core plus stop/build hooks, strict=same hook set as full with stricter policy"
+      "description": "Runtime enforcement profile. minimal=pre-hooks only, core=standard runtime hooks, full=core plus stop/build hooks, strict=full plus U-32 SessionStart constraint budget"
     },
     "enforcement": {
       "type": "string",
