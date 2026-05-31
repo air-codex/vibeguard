@@ -36,9 +36,12 @@ pub fn pre_write_check(args: &[String]) -> Result {
         return Ok(());
     };
 
-    let file_path = nested_str(&data, "tool_input.file_path").unwrap_or_default();
+    let Some(file_path) = nested_str(&data, "tool_input.file_path") else {
+        println!("MALFORMED");
+        return Ok(());
+    };
     if file_path.is_empty() {
-        println!("PASS");
+        println!("MALFORMED");
         return Ok(());
     }
 
