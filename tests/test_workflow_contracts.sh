@@ -131,6 +131,30 @@ else
   red "routing schema accepts snake_case blocking_questions"
   FAIL=$((FAIL + 1))
 fi
+TOTAL=$((TOTAL + 1))
+if python3 - "${REPO_DIR}" >/dev/null <<'PY'; then
+import json
+import sys
+from pathlib import Path
+
+repo = Path(sys.argv[1])
+registry = json.loads((repo / "schemas/workflow-contract-consumers.json").read_text(encoding="utf-8"))
+for consumer in registry["consumers"]:
+    if consumer.get("path") == ".claude/commands/vibeguard/preflight.md":
+        if "routing-contract.md" not in consumer.get("references", []):
+            raise SystemExit("preflight missing routing-contract.md reference")
+        if "routing_decision" not in consumer.get("requires", []):
+            raise SystemExit("preflight missing routing_decision requirement")
+        break
+else:
+    raise SystemExit("preflight command is not a workflow contract consumer")
+PY
+  green "preflight command is registered as a routing contract consumer"
+  PASS=$((PASS + 1))
+else
+  red "preflight command is registered as a routing contract consumer"
+  FAIL=$((FAIL + 1))
+fi
 
 header "consumer drift failures"
 HANDOFF_FIXTURE="${TMP_DIR}/handoff"
