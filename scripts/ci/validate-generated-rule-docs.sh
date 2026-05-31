@@ -14,6 +14,12 @@ if ! grep -Fq "${expected_l1}" docs/rule-reference.md; then
   exit 1
 fi
 
+expected_l7='| L7 | Commit discipline | Agent/review contract + `pre-commit-guard.sh` quality/build gate + git `pre-push` remote-history gate |'
+if ! grep -Fq "${expected_l7}" docs/rule-reference.md; then
+  echo "docs/rule-reference.md must describe L7 as mixed agent/review, pre-commit, and pre-push coverage" >&2
+  exit 1
+fi
+
 expected_strict='| Strict | Non-negotiable agent/reviewer rule. If enforcement is not mechanical, violations still need a fix, explicit DEFER, or documented downgrade path. |'
 if ! grep -Fq "${expected_strict}" docs/rule-reference.md; then
   echo "docs/rule-reference.md must define Strict as an agent/reviewer contract, not automatic hook blocking" >&2
