@@ -214,8 +214,8 @@ assert_fails_with "invalid command schema example fails schema validation" "mayb
 
 header "workflow command path failures"
 COMMAND_PATH_FIXTURE="${TMP_DIR}/command-path"
-mkdir -p "${COMMAND_PATH_FIXTURE}/workflows"
-cat > "${COMMAND_PATH_FIXTURE}/workflows/auto-optimize.md" <<'MD'
+mkdir -p "${COMMAND_PATH_FIXTURE}/workflows/auto-optimize"
+cat > "${COMMAND_PATH_FIXTURE}/workflows/auto-optimize/SKILL.md" <<'MD'
 ```bash
 bash "${VIBEGUARD_ROOT:-$(dirname "$0")/../..}/scripts/compliance_check.sh" /path/to/project
 ```

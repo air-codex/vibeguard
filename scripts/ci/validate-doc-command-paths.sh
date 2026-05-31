@@ -17,7 +17,7 @@ renamed_targets = [
     repo_root / "docs" / "README_CN.md",
     repo_root / "scripts" / "CLAUDE.md",
 ]
-renamed_targets.extend(sorted((repo_root / "workflows").glob("*.md")))
+renamed_targets.extend(sorted((repo_root / "workflows").rglob("*.md")))
 renamed_targets.extend(sorted((repo_root / ".claude" / "commands" / "vibeguard").glob("*.md")))
 
 renamed_command_paths = {
