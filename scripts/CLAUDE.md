@@ -37,7 +37,7 @@ Reference notes for the utility scripts shipped with VibeGuard.
 | `validate-hooks.sh` | Validate hook script presence and contract basics |
 | `validate-rules.sh` | Validate rule file format and ID uniqueness |
 | `validate-doc-paths.sh` | Check backtick path references in markdown docs |
-| `validate-doc-command-paths.sh` | Check `~/vibeguard/...` shell command paths in user-facing docs |
+| `validate-doc-command-paths.sh` | Check shell command paths and stale command aliases in user-facing docs |
 | `validate-no-personal-paths.sh` | Catch accidental personal absolute paths in tracked files |
 | `validate-skill-format.sh` | Check VibeGuard skill/workflow SKILL.md activation, red-flag, and checklist sections |
 | `check-branch-protection.sh` | Verify branch protection settings |

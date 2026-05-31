@@ -205,7 +205,7 @@ cd "${AUTO_RUN_AGENT_DIR}"
 1. After all FIX are completed, run the full test suite
 2. **Run VibeGuard Compliance Check**:
    ```bash
-   bash "${VIBEGUARD_ROOT:-$(dirname "$0")/../..}/scripts/compliance_check.sh" /path/to/project
+   bash "${VIBEGUARD_ROOT:-$(dirname "$0")/../..}/scripts/verify/compliance_check.sh" /path/to/project
    ```
 3. Fix the problems found in the compliance check (if any)
 4. bump version（patch for fixes, minor for new features）
