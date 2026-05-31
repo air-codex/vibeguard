@@ -212,6 +212,14 @@ expected = {
         "references": {"routing-contract.md", "delegation-contract.md"},
         "requires": {"routing_decision", "execution_handoff", "lane_map", "verification_gate"},
     },
+    "AGENTS.md": {
+        "references": {"routing-contract.md"},
+        "requires": {"routing_decision", "execution_handoff"},
+    },
+    "skills/vibeguard/SKILL.md": {
+        "references": {"routing-contract.md"},
+        "requires": {"routing_decision", "execution_handoff"},
+    },
 }
 for path, contract in expected.items():
     consumer = consumers.get(path)

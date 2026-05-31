@@ -137,6 +137,16 @@
       "requires": []
     },
     {
+      "path": "AGENTS.md",
+      "references": ["routing-contract.md"],
+      "requires": ["routing_decision", "execution_handoff"]
+    },
+    {
+      "path": "skills/vibeguard/SKILL.md",
+      "references": ["routing-contract.md"],
+      "requires": ["routing_decision", "execution_handoff"]
+    },
+    {
       "path": "docs/CLAUDE.md.example",
       "references": ["routing-contract.md", "delegation-contract.md"],
       "requires": []

@@ -12,6 +12,7 @@ VibeGuard is an anti-hallucination framework for AI-assisted development that sy
 Canonical contract sources for this skill:
 - `README.md` — product entry and current Core vs Workflow boundary
 - `docs/rule-reference.md` — public rule/guard summary
+- `workflows/references/routing-contract.md` — canonical `readiness` decisions and execution handoff fields
 - `schemas/install-modules.json` — install/runtime contract
 
 `docs/internal/history/spec.md` remains a historical design snapshot and should not be treated as the authoritative implementation contract.
@@ -34,7 +35,7 @@ Triggered when user mentions:
 ## Red Flags
 
 - A new guard or rule is proposed without a corresponding automated detection method.
-- A workflow skips the routing contract or omits the shared handoff fields.
+- A workflow skips the routing contract or omits `mode`, `artifacts`, `runtime_pinning_snapshot`, `verification_owner`, `stop_conditions`, or `lane_map`.
 - A completion claim lacks fresh verification output from the current session.
 
 ## Checklist
@@ -114,6 +115,7 @@ Refer to references/review-template.md, record:
 
 - [ ] Confirm the task goal, context, constraints, and done-when criteria.
 - [ ] Search for existing rules, hooks, workflows, skills, and tests before adding new ones.
-- [ ] Pick the correct routing lane: `execute_direct`, `plan_first`, or `clarify_first`.
+- [ ] Pick the correct routing lane by setting `readiness`: `execute_direct`, `plan_first`, or `clarify_first`.
+- [ ] Carry `mode`, `artifacts`, `runtime_pinning_snapshot`, `verification_owner`, `stop_conditions`, and `lane_map` when planning hands off to execution.
 - [ ] Attach a focused verification command to every behavior change.
 - [ ] Preserve the L1-L7 constraint summary in handoffs and compactions.
