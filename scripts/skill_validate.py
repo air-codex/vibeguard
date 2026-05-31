@@ -10,12 +10,16 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from skill_format import (  # noqa: E402
+    FORMAT_LIST_SECTIONS,
+    FORMAT_REQUIRED_SECTIONS,
+    default_skill_paths,
+    skill_format_errors,
+)
 
 OUTCOMES = {"success", "failure"}
 DEFAULT_OUTPUT_DIR = ".vibeguard/skill-validate"
-FORMAT_PATH_PATTERNS = ("skills/*/SKILL.md", "workflows/*/SKILL.md", "templates/skill-template.md")
-FORMAT_REQUIRED_SECTIONS = ("## When to Activate", "## Red Flags", "## Checklist")
-FORMAT_LIST_SECTIONS = ("## Red Flags", "## Checklist")
 
 
 class SkillValidateError(Exception):
@@ -166,64 +170,8 @@ def extract_skill_name(path: Path) -> str:
     raise SkillValidateError("cannot infer skill name")
 
 
-def markdown_sections(text: str) -> dict[str, list[str]]:
-    sections: dict[str, list[str]] = {}
-    current: str | None = None
-    for line in text.splitlines():
-        if line.startswith("## "):
-            current = line.strip()
-            sections[current] = []
-            continue
-        if current is not None:
-            sections[current].append(line)
-    return sections
-
-
-def useful_list_item(line: str) -> bool:
-    match = re.match(r"^\s*(?:[-*+]|\d+[.)])\s+(?P<item>\S.*)$", line)
-    if not match:
-        return False
-    item = re.sub(r"^\[[ xX]\]\s+", "", match.group("item").strip())
-    lower = item.strip(" .").lower()
-    if not lower or lower in {"...", "todo", "tbd", "n/a", "none", "placeholder"}:
-        return False
-    starts_with_markdown_link = re.match(
-        r"^\[[^\]\n]+\](?:\([^)]+\)|\[[^\]\n]*\])",
-        item,
-    ) is not None
-    if lower.startswith(("todo:", "tbd:", "<")):
-        return False
-    if lower.startswith("[") and not starts_with_markdown_link:
-        return False
-    return True
-
-
-def skill_format_errors(path: Path) -> list[str]:
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        return [f"cannot read skill file: {exc}"]
-    sections = markdown_sections(text)
-    errors: list[str] = []
-    for heading in FORMAT_REQUIRED_SECTIONS:
-        body = sections.get(heading)
-        if body is None:
-            errors.append(f"missing required section: {heading}")
-            continue
-        if not any(line.strip() for line in body):
-            errors.append(f"{heading} is empty")
-    for heading in FORMAT_LIST_SECTIONS:
-        body = sections.get(heading)
-        if body is not None and not any(useful_list_item(line) for line in body):
-            errors.append(f"{heading} has no useful list items")
-    return errors
-
-
 def repo_skill_paths(repo_root: Path) -> list[Path]:
-    paths: list[Path] = []
-    for pattern in FORMAT_PATH_PATTERNS:
-        paths.extend(repo_root.glob(pattern))
-    return sorted(path for path in paths if path.is_file())
+    return default_skill_paths(repo_root)
 
 
 def build_format_artifact(paths: list[Path], repo_root: Path | None) -> dict[str, object]:

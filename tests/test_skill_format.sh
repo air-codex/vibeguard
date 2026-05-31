@@ -5,6 +5,8 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 VALIDATOR="${REPO_DIR}/scripts/ci/validate-skill-format.py"
+SKILL_VALIDATE="${REPO_DIR}/scripts/skill_validate.py"
+SHARED_VALIDATOR="${REPO_DIR}/scripts/lib/skill_format.py"
 
 PASS=0
 FAIL=0
@@ -76,6 +78,7 @@ MD
 
 header "syntax"
 assert_cmd "validate-skill-format.py syntax is valid" python3 -m py_compile "${VALIDATOR}"
+assert_cmd "skill_format.py syntax is valid" python3 -m py_compile "${SHARED_VALIDATOR}"
 
 header "repository coverage"
 assert_cmd "repository skills, workflows, and template pass format validation" \
@@ -89,26 +92,52 @@ header "single-file validation"
 VALID_SKILL="${TMP_DIR}/skills/demo/SKILL.md"
 write_valid_skill "${VALID_SKILL}"
 assert_cmd "valid skill passes" python3 "${VALIDATOR}" "${VALID_SKILL}"
+assert_cmd "valid skill passes skill_validate format gate" \
+  python3 "${SKILL_VALIDATE}" --format-only --proposed-skill "${VALID_SKILL}"
 
 header "missing required section"
 MISSING_RED_FLAGS="${TMP_DIR}/missing-red-flags/SKILL.md"
 write_valid_skill "${MISSING_RED_FLAGS}"
 perl -0pi -e 's/\n## Red Flags\n.*?\n## Checklist/\n## Checklist/s' "${MISSING_RED_FLAGS}"
 missing_out="$(python3 "${VALIDATOR}" "${MISSING_RED_FLAGS}" 2>&1 || true)"
-assert_contains "${missing_out}" "missing ## Red Flags section" "missing red flags section fails"
+assert_contains "${missing_out}" "missing required section: ## Red Flags" "missing red flags section fails"
 
 header "empty required lists"
 EMPTY_RED_FLAGS="${TMP_DIR}/empty-red-flags/SKILL.md"
 write_valid_skill "${EMPTY_RED_FLAGS}"
 perl -0pi -e 's/## Red Flags\n\n.*?\n## Checklist/## Red Flags\n\nNo bullets here.\n\n## Checklist/s' "${EMPTY_RED_FLAGS}"
 empty_red_out="$(python3 "${VALIDATOR}" "${EMPTY_RED_FLAGS}" 2>&1 || true)"
-assert_contains "${empty_red_out}" "## Red Flags must contain at least 3 bullets" "empty red flags list fails"
+assert_contains "${empty_red_out}" "## Red Flags has no useful list items" "empty red flags list fails"
 
 EMPTY_CHECKLIST="${TMP_DIR}/empty-checklist/SKILL.md"
 write_valid_skill "${EMPTY_CHECKLIST}"
 perl -0pi -e 's/## Checklist\n\n.*\z/## Checklist\n\nNo checkbox items here.\n/s' "${EMPTY_CHECKLIST}"
 empty_checklist_out="$(python3 "${VALIDATOR}" "${EMPTY_CHECKLIST}" 2>&1 || true)"
-assert_contains "${empty_checklist_out}" "## Checklist must contain at least 3 checkbox items" "empty checklist fails"
+assert_contains "${empty_checklist_out}" "## Checklist has no useful list items" "empty checklist fails"
+
+header "shared rule source"
+DRIFT_SKILL="${TMP_DIR}/drift/SKILL.md"
+write_valid_skill "${DRIFT_SKILL}"
+perl -0pi -e 's/## Red Flags\n\n.*?\n## Checklist/## Red Flags\n\n- Only one red flag.\n\n## Checklist/s' "${DRIFT_SKILL}"
+perl -0pi -e 's/## Checklist\n\n.*\z/## Checklist\n\n- [ ] Only one checklist item.\n/s' "${DRIFT_SKILL}"
+drift_ci_out="$(python3 "${VALIDATOR}" "${DRIFT_SKILL}" 2>&1 || true)"
+drift_skill_validate_out="$(
+  python3 "${SKILL_VALIDATE}" --format-only --proposed-skill "${DRIFT_SKILL}" 2>&1 || true
+)"
+assert_contains "${drift_ci_out}" "## Red Flags must contain at least 3 bullets" "CI validator rejects underfilled red flags"
+assert_contains "${drift_ci_out}" "## Checklist must contain at least 3 checkbox items" "CI validator rejects underfilled checklist"
+assert_contains "${drift_skill_validate_out}" "## Red Flags must contain at least 3 bullets" "skill_validate rejects underfilled red flags"
+assert_contains "${drift_skill_validate_out}" "## Checklist must contain at least 3 checkbox items" "skill_validate rejects underfilled checklist"
+
+NO_FRONTMATTER_SKILL="${TMP_DIR}/no-frontmatter/SKILL.md"
+write_valid_skill "${NO_FRONTMATTER_SKILL}"
+perl -0pi -e 's/^---\nname: demo-skill\ndescription: Use when validating VibeGuard skill format structure\.\n---\n//' "${NO_FRONTMATTER_SKILL}"
+frontmatter_ci_out="$(python3 "${VALIDATOR}" "${NO_FRONTMATTER_SKILL}" 2>&1 || true)"
+frontmatter_skill_validate_out="$(
+  python3 "${SKILL_VALIDATE}" --format-only --proposed-skill "${NO_FRONTMATTER_SKILL}" 2>&1 || true
+)"
+assert_contains "${frontmatter_ci_out}" "missing YAML frontmatter opening" "CI validator rejects missing frontmatter"
+assert_contains "${frontmatter_skill_validate_out}" "missing YAML frontmatter opening" "skill_validate rejects missing frontmatter"
 
 header "frontmatter delimiter"
 BLOCK_SCALAR_SKILL="${TMP_DIR}/block-scalar/SKILL.md"

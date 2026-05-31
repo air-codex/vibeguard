@@ -62,10 +62,14 @@ description: Use when validating a proposed skill change.
 ## Red Flags
 
 - The proposed skill has no repeatable trigger condition.
+- The proposed skill does not define observable failure modes.
+- The proposed skill cannot be verified with focused evidence.
 
 ## Checklist
 
-- Confirm the skill has repair evidence and no unrelated regressions.
+- [ ] Confirm the skill has repair evidence and no unrelated regressions.
+- [ ] Confirm the activation cue matches the task.
+- [ ] Run focused verification before handoff.
 MD
 
 header "syntax"
@@ -125,10 +129,14 @@ description: Use when testing Markdown link list items.
 ## Red Flags
 
 - [Routing Contract](../references/routing-contract.md) is not reflected in the skill handoff.
+- [Delivery Contract](../references/delivery-contract.md) is missing from the review.
+- [Verification Contract](../references/verification-contract.md) is absent from the checklist.
 
 ## Checklist
 
-- [Delivery Base](../references/delivery-base.md) was reviewed before final verification.
+- [ ] [Delivery Base](../references/delivery-base.md) was reviewed before final verification.
+- [ ] [Routing Contract](../references/routing-contract.md) was reflected in the handoff.
+- [ ] [Verification Contract](../references/verification-contract.md) was checked before completion.
 MD
 assert_cmd "format-only accepts Markdown-link list items" \
   python3 "${SKILL_VALIDATE}" --format-only --proposed-skill "${MARKDOWN_LINK_DIR}/SKILL.md"
@@ -149,7 +157,9 @@ description: Use when testing missing sections.
 
 ## Checklist
 
-- Detect the missing heading.
+- [ ] Detect the missing heading.
+- [ ] Report the missing heading.
+- [ ] Keep the failure message specific.
 MD
 missing_section_out="$(
   python3 "${SKILL_VALIDATE}" \
@@ -206,6 +216,8 @@ description: Use when testing workflow coverage.
 ## Red Flags
 
 - The repository check ignores workflow skills.
+- The repository check ignores required workflow sections.
+- The repository check accepts incomplete workflow checklists.
 MD
 coverage_out="$(
   python3 "${SKILL_VALIDATE}" \
