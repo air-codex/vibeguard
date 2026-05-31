@@ -263,6 +263,88 @@ else
 fi
 TOTAL=$((TOTAL + 1))
 if python3 - "${REPO_DIR}" >/dev/null <<'PY'; then
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+repo = Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location("workflow_contracts", repo / "scripts/lib/workflow_contracts.py")
+module = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+schema = json.loads((repo / "schemas/command-skill-validate-output.schema.json").read_text(encoding="utf-8"))
+payload = {
+    "command": "skill_validate",
+    "mode": "format",
+    "verdict": "pass",
+    "paths_checked": 1,
+    "required_sections": ["## When to Activate", "## Red Flags", "## Checklist"],
+    "list_required_sections": ["## Red Flags", "## Checklist"],
+    "errors": [],
+    "counts": {
+        "repair": 1,
+        "regression": 0,
+        "no_change": 2,
+        "unrelated_regression": 0,
+        "unrelated_no_change": 2,
+    },
+}
+errors = module.validate_instance(payload, schema)
+if not errors:
+    raise SystemExit("expected format artifact with evidence fields to fail")
+PY
+  green "skill_validate format-only artifact rejects evidence fields"
+  PASS=$((PASS + 1))
+else
+  red "skill_validate format-only artifact rejects evidence fields"
+  FAIL=$((FAIL + 1))
+fi
+TOTAL=$((TOTAL + 1))
+if python3 - "${REPO_DIR}" >/dev/null <<'PY'; then
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+repo = Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location("workflow_contracts", repo / "scripts/lib/workflow_contracts.py")
+module = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+schema = json.loads((repo / "schemas/command-skill-validate-output.schema.json").read_text(encoding="utf-8"))
+payload = {
+    "command": "skill_validate",
+    "mode": "evidence",
+    "skill_name": "demo-skill",
+    "proposed_skill": "/tmp/demo/SKILL.md",
+    "decision_set": "baseline",
+    "verdict": "pass",
+    "counts": {
+        "repair": 1,
+        "regression": 0,
+        "no_change": 2,
+        "unrelated_regression": 0,
+        "unrelated_no_change": 2,
+    },
+    "freshness_gaps": [],
+    "scenarios": [],
+    "paths_checked": 1,
+}
+errors = module.validate_instance(payload, schema)
+if not errors:
+    raise SystemExit("expected evidence artifact with format fields to fail")
+PY
+  green "skill_validate evidence artifact rejects format fields"
+  PASS=$((PASS + 1))
+else
+  red "skill_validate evidence artifact rejects format fields"
+  FAIL=$((FAIL + 1))
+fi
+TOTAL=$((TOTAL + 1))
+if python3 - "${REPO_DIR}" >/dev/null <<'PY'; then
 import json
 import sys
 from pathlib import Path
