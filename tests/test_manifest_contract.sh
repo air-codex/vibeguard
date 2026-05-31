@@ -93,6 +93,28 @@ assert_not_contains "${hooks_out}" "git-pre-push" "git pre-push is tracked but n
 assert_not_contains "${hooks_out}" "skills-loader" "manual hooks are not exposed through disabled_hooks"
 hooks_table_out="$(python3 "${REPO_DIR}/scripts/lib/hooks_manifest.py" render-doc-table)"
 assert_contains "${hooks_table_out}" '`git/pre-push` | git pre-push' "hooks manifest renders git pre-push inventory row"
+post_decision_contract_out="$(python3 - "${REPO_DIR}/hooks/manifest.json" <<'PY' 2>&1 || true
+import json
+import sys
+from pathlib import Path
+
+manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+hooks = {hook["name"]: hook for hook in manifest["hooks"]}
+expected = {
+    "post-edit-guard": ["pass", "warn", "escalate", "correction"],
+    "post-write-guard": ["pass", "warn"],
+    "post-build-check": ["pass", "warn", "escalate"],
+}
+for name, decision_types in expected.items():
+    actual = hooks[name]["decision_types"]
+    if actual != decision_types:
+        print(f"FAIL: {name} decision_types={actual!r}, expected={decision_types!r}")
+        raise SystemExit(1)
+print("OK: post hook decision_types match actual logging contract")
+PY
+)"
+assert_contains "${post_decision_contract_out}" "OK: post hook decision_types match actual logging contract" "post hook decision_types match actual logging contract"
+assert_not_contains "${post_decision_contract_out}" "FAIL:" "post hook decision_types contract reports without failure"
 rules_out="$(python3 "${MANIFEST_HELPER}" rule-ids --source canonical --scope common)"
 assert_contains "${rules_out}" "W-17" "canonical common rule ids include W-17"
 assert_contains "${rules_out}" "U-32" "canonical common rule ids include U-32"
