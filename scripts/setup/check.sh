@@ -125,6 +125,23 @@ _check_repo_git_hook() {
     red "[BROKEN] VibeGuard repo ${hook_name} hook target not executable: ${actual_target}"
     return 0
   fi
+  if [[ "${hook_name}" == "pre-push" && "${expected_target}" == "${HOME}/.vibeguard/pre-push" ]]; then
+    local wrapper_repo_path="${HOME}/.vibeguard/repo-path"
+    local wrapper_repo=""
+    local wrapper_source=""
+    if [[ -f "${wrapper_repo_path}" ]]; then
+      wrapper_repo="$(<"${wrapper_repo_path}")"
+    fi
+    wrapper_source="${wrapper_repo}/hooks/git/pre-push"
+    if [[ -z "${wrapper_repo}" || ! -f "${wrapper_source}" ]]; then
+      red "[BROKEN] VibeGuard repo pre-push hook wrapper source missing: ${wrapper_source}"
+      return 0
+    fi
+    if [[ ! -r "${wrapper_source}" ]]; then
+      red "[BROKEN] VibeGuard repo pre-push hook wrapper source not readable: ${wrapper_source}"
+      return 0
+    fi
+  fi
 
   green "[OK] VibeGuard repo ${hook_name} hook installed"
 }
@@ -184,7 +201,7 @@ run_legacy_checks() {
   echo "------------------------------"
   if _vg_hook_dir="$(git -C "${REPO_DIR}" rev-parse --path-format=absolute --git-path hooks 2>/dev/null)"; then
     _check_repo_git_hook "pre-commit" "${HOME}/.vibeguard/pre-commit"
-    _check_repo_git_hook "pre-push" "${REPO_DIR}/hooks/git/pre-push"
+    _check_repo_git_hook "pre-push" "${HOME}/.vibeguard/pre-push"
   else
     yellow "[INFO] Repository git hooks not checked (not a git repository)"
   fi
