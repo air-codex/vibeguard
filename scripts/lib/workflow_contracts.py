@@ -43,6 +43,8 @@ def _type_name(value: Any) -> str:
         return "string"
     if isinstance(value, int) and not isinstance(value, bool):
         return "integer"
+    if isinstance(value, float):
+        return "number"
     if isinstance(value, list):
         return "array"
     if isinstance(value, dict):
@@ -59,6 +61,8 @@ def _type_matches(value: Any, expected: str) -> bool:
         return isinstance(value, str)
     if expected == "integer":
         return isinstance(value, int) and not isinstance(value, bool)
+    if expected == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
     if expected == "array":
         return isinstance(value, list)
     if expected == "object":

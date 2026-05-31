@@ -75,7 +75,7 @@ trap cleanup EXIT
 copy_schemas() {
   local target="$1"
   mkdir -p "${target}/schemas"
-  cp "${REPO_DIR}"/schemas/workflow-*.schema.json "${target}/schemas/"
+  cp "${REPO_DIR}"/schemas/*.schema.json "${target}/schemas/"
 }
 
 write_registry() {
@@ -84,6 +84,12 @@ write_registry() {
 {
   "schema_version": 1,
   "schema_files": {
+    "check_output": "command-check-output.schema.json",
+    "learn_output": "command-learn-output.schema.json",
+    "live_truth_output": "command-live-truth-output.schema.json",
+    "preflight_output": "command-preflight-output.schema.json",
+    "review_output": "command-review-output.schema.json",
+    "skill_validate_output": "command-skill-validate-output.schema.json",
     "routing_decision": "workflow-routing-decision.schema.json",
     "execution_handoff": "workflow-execution-handoff.schema.json",
     "delegation_assignment": "workflow-delegation-assignment.schema.json",
@@ -133,6 +139,63 @@ else
 fi
 TOTAL=$((TOTAL + 1))
 if python3 - "${REPO_DIR}" >/dev/null <<'PY'; then
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+repo = Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location("workflow_contracts", repo / "scripts/lib/workflow_contracts.py")
+module = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+schema = json.loads((repo / "schemas/command-skill-validate-output.schema.json").read_text(encoding="utf-8"))
+payload = {
+    "command": "skill_validate",
+    "skill_name": "demo-skill",
+    "proposed_skill": "/tmp/demo/SKILL.md",
+    "decision_set": "baseline",
+    "verdict": "pass",
+    "counts": {
+        "repair": 1,
+        "regression": 0,
+        "no_change": 2,
+        "unrelated_regression": 0,
+        "unrelated_no_change": 2,
+    },
+    "freshness_gaps": [],
+    "reasons": ["repair count is greater than regression count with no regressions"],
+    "regression_justification": None,
+    "scored_against_agent": "claude-opus-4-7",
+    "scored_at": "2026-05-31",
+    "artifact_path": ".vibeguard/skill-validate/demo-skill-2026-05-31.jsonl",
+    "scenarios": [
+        {
+            "scenario_id": "incident-1",
+            "scenario_type": "target",
+            "without_skill": "failure",
+            "with_skill": "success",
+            "classification": "repair",
+            "source": "baseline",
+            "scored_against_agent": "claude-opus-4-7",
+            "scored_at": "2026-05-31",
+            "notes": None,
+        }
+    ],
+}
+errors = module.validate_instance(payload, schema)
+if errors:
+    raise SystemExit("\n".join(errors))
+PY
+  green "skill_validate schema accepts persisted artifact fields"
+  PASS=$((PASS + 1))
+else
+  red "skill_validate schema accepts persisted artifact fields"
+  FAIL=$((FAIL + 1))
+fi
+TOTAL=$((TOTAL + 1))
+if python3 - "${REPO_DIR}" >/dev/null <<'PY'; then
 import json
 import sys
 from pathlib import Path
@@ -160,11 +223,27 @@ for path, contract in expected.items():
     missing_requires = contract["requires"] - set(consumer.get("requires", []))
     if missing_requires:
         raise SystemExit(f"{path} missing requirements: {sorted(missing_requires)}")
+
+examples = {
+    (example.get("heading"), example.get("schema"))
+    for example in registry.get("markdown_examples", [])
+}
+expected_examples = {
+    ("preflight output Schema", "preflight_output"),
+    ("check output Schema", "check_output"),
+    ("live_truth output Schema", "live_truth_output"),
+    ("skill_validate output Schema", "skill_validate_output"),
+    ("review output Schema", "review_output"),
+    ("learn output Schema", "learn_output"),
+}
+missing_examples = expected_examples - examples
+if missing_examples:
+    raise SystemExit(f"command output schema examples missing from registry: {sorted(missing_examples)}")
 PY
-  green "command and workflow routing consumers stay registered"
+  green "command output examples and workflow consumers stay registered"
   PASS=$((PASS + 1))
 else
-  red "command and workflow routing consumers stay registered"
+  red "command output examples and workflow consumers stay registered"
   FAIL=$((FAIL + 1))
 fi
 
@@ -211,6 +290,20 @@ PY
 write_registry "${EXAMPLE_FIXTURE}" '"markdown_examples": [{"path": "docs/command-schemas.md", "heading": "routing decision Schema", "schema": "routing_decision"}], "consumers": [], "legacy_routing_markers": []'
 assert_fails_with "invalid command schema example fails schema validation" "maybe_later" \
   python3 "${HELPER}" --repo-dir "${EXAMPLE_FIXTURE}" --schema-dir "${EXAMPLE_FIXTURE}/schemas" --registry "${EXAMPLE_FIXTURE}/schemas/workflow-contract-consumers.json" validate
+
+COMMAND_EXAMPLE_FIXTURE="${TMP_DIR}/command-example"
+copy_schemas "${COMMAND_EXAMPLE_FIXTURE}"
+mkdir -p "${COMMAND_EXAMPLE_FIXTURE}/docs"
+python3 - "${REPO_DIR}/docs/command-schemas.md" "${COMMAND_EXAMPLE_FIXTURE}/docs/command-schemas.md" <<'PY'
+from pathlib import Path
+import sys
+source, target = map(Path, sys.argv[1:3])
+text = source.read_text(encoding="utf-8").replace('"claim_type": "latest"', '"claim_type": "laterish"', 1)
+target.write_text(text, encoding="utf-8")
+PY
+write_registry "${COMMAND_EXAMPLE_FIXTURE}" '"markdown_examples": [{"path": "docs/command-schemas.md", "heading": "live_truth output Schema", "schema": "live_truth_output"}], "consumers": [], "legacy_routing_markers": []'
+assert_fails_with "invalid live_truth command example fails schema validation" "laterish" \
+  python3 "${HELPER}" --repo-dir "${COMMAND_EXAMPLE_FIXTURE}" --schema-dir "${COMMAND_EXAMPLE_FIXTURE}/schemas" --registry "${COMMAND_EXAMPLE_FIXTURE}/schemas/workflow-contract-consumers.json" validate
 
 header "workflow command path failures"
 COMMAND_PATH_FIXTURE="${TMP_DIR}/command-path"
