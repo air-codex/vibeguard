@@ -112,7 +112,7 @@ assert_claude_rule_banner_matches_installed_rules() {
   local rules_dest="${HOME}/.claude/rules/vibeguard"
   local actual=0 declared file_count rule_file
   while IFS= read -r rule_file; do
-    file_count=$(grep -cE '^## [A-Z]+-[0-9]+' "${rule_file}" 2>/dev/null || true)
+    file_count=$(grep -cE '^##[[:space:]]+(RS|GO|TS|PY|U|SEC|W|TASTE)-[A-Za-z0-9-]+([[:space:]:]|$)' "${rule_file}" 2>/dev/null || true)
     actual=$((actual + file_count))
   done < <(find "${rules_dest}" \( -type f -o -type l \) -name "*.md" 2>/dev/null)
   declared=$(grep -o '[0-9]* rules' "${HOME}/.claude/CLAUDE.md" 2>/dev/null | grep -o '[0-9]*' | head -1 || true)
@@ -221,6 +221,36 @@ assert_cmd "scripts/lib/settings_json.py syntax is correct" python3 -m py_compil
 assert_cmd "scripts/lib/hooks_manifest.py syntax is correct" python3 -m py_compile "${HOOKS_MANIFEST_HELPER}"
 assert_cmd "scripts/lib/project_config_validate.py syntax is correct" python3 -m py_compile "${PROJECT_CONFIG_HELPER}"
 assert_cmd "scripts/lib/claude_md.py syntax is correct" python3 -m py_compile "${REPO_DIR}/scripts/lib/claude_md.py"
+assert_cmd "CLAUDE.md helper counts canonical non-numeric rule ids" python3 - "${REPO_DIR}" <<'PY'
+import subprocess
+import sys
+from pathlib import Path
+
+repo_dir = Path(sys.argv[1])
+sys.path.insert(0, str(repo_dir / "scripts/lib"))
+import claude_md
+
+canonical = subprocess.check_output(
+    [
+        sys.executable,
+        str(repo_dir / "scripts/lib/vibeguard_manifest.py"),
+        "rule-ids",
+        "--source",
+        "canonical",
+    ],
+    text=True,
+).splitlines()
+assert "TASTE-ANSI" in canonical
+assert claude_md.count_rule_headings(repo_dir / "rules/claude-rules") == len(canonical)
+PY
+assert_cmd "setup shell rule counter counts canonical non-numeric rule ids" bash -c "
+  set -euo pipefail
+  source '${REPO_DIR}/scripts/setup/lib.sh'
+  source '${REPO_DIR}/scripts/setup/targets/claude-home.sh'
+  actual=\"\$(claude_rule_id_count '${REPO_DIR}/rules/claude-rules')\"
+  expected=\"\$(python3 '${REPO_DIR}/scripts/lib/vibeguard_manifest.py' rule-ids --source canonical | wc -l | tr -d ' ')\"
+  test \"\${actual}\" = \"\${expected}\"
+"
 assert_cmd "scripts/lib/codex_hooks_json.py syntax is correct" python3 -m py_compile "${CODEX_HOOKS_HELPER}"
 assert_cmd "scripts/lib/codex_config_toml.py syntax is correct" python3 -m py_compile "${CODEX_CONFIG_HELPER}"
 assert_cmd "hooks/_lib/codex_apply_patch_adapter.py syntax is correct" python3 -m py_compile "${REPO_DIR}/hooks/_lib/codex_apply_patch_adapter.py"
