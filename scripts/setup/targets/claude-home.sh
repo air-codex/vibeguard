@@ -167,7 +167,7 @@ claude_rule_id_count() {
     return 0
   fi
   while IFS= read -r rule_file; do
-    file_count=$(grep -cE '^## [A-Z]+-[0-9]+' "${rule_file}" 2>/dev/null || true)
+    file_count=$(grep -cE '^##[[:space:]]+(RS|GO|TS|PY|U|SEC|W|TASTE)-[A-Za-z0-9-]+([[:space:]:]|$)' "${rule_file}" 2>/dev/null || true)
     total=$((total + file_count))
   done < <(find "${root}" \( -type f -o -type l \) -name "*.md" 2>/dev/null)
   printf '%s\n' "${total}"
