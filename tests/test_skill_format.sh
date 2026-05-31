@@ -107,6 +107,32 @@ empty_checklist_out="$(python3 "${VALIDATOR}" "${EMPTY_CHECKLIST}" 2>&1 || true)
 assert_contains "${empty_checklist_out}" "## Checklist must contain at least 3 checkbox items" "empty checklist fails"
 
 header "frontmatter delimiter"
+BLOCK_SCALAR_SKILL="${TMP_DIR}/block-scalar/SKILL.md"
+write_valid_skill "${BLOCK_SCALAR_SKILL}"
+perl -0pi -e 's/description: Use when validating VibeGuard skill format structure\./description: |\n  Use when validating VibeGuard skill format structure.\n  Covers multiline descriptions./' "${BLOCK_SCALAR_SKILL}"
+assert_cmd "valid block scalar frontmatter passes" python3 "${VALIDATOR}" "${BLOCK_SCALAR_SKILL}"
+
+NUMERIC_BLOCK_SCALAR_SKILL="${TMP_DIR}/numeric-block-scalar/SKILL.md"
+write_valid_skill "${NUMERIC_BLOCK_SCALAR_SKILL}"
+perl -0pi -e 's/description: Use when validating VibeGuard skill format structure\./description: |2\n  Use when validating VibeGuard skill format structure.\n  Numeric block scalar indentation indicator./' "${NUMERIC_BLOCK_SCALAR_SKILL}"
+assert_cmd "block scalar with numeric indentation indicator passes" python3 "${VALIDATOR}" "${NUMERIC_BLOCK_SCALAR_SKILL}"
+
+CHOMPING_FIRST_BLOCK_SCALAR_SKILL="${TMP_DIR}/chomping-first-block-scalar/SKILL.md"
+write_valid_skill "${CHOMPING_FIRST_BLOCK_SCALAR_SKILL}"
+perl -0pi -e 's/description: Use when validating VibeGuard skill format structure\./description: |-2\n  Use when validating VibeGuard skill format structure.\n  Chomping indicator before numeric indentation indicator./' "${CHOMPING_FIRST_BLOCK_SCALAR_SKILL}"
+assert_cmd "block scalar with chomping-before-indent indicator passes" python3 "${VALIDATOR}" "${CHOMPING_FIRST_BLOCK_SCALAR_SKILL}"
+
+FOLDED_CHOMPING_FIRST_BLOCK_SCALAR_SKILL="${TMP_DIR}/folded-chomping-first-block-scalar/SKILL.md"
+write_valid_skill "${FOLDED_CHOMPING_FIRST_BLOCK_SCALAR_SKILL}"
+perl -0pi -e 's/description: Use when validating VibeGuard skill format structure\./description: >+2\n  Use when validating VibeGuard skill format structure.\n  Folded scalar with chomping before indentation indicator./' "${FOLDED_CHOMPING_FIRST_BLOCK_SCALAR_SKILL}"
+assert_cmd "folded block scalar with chomping-before-indent indicator passes" python3 "${VALIDATOR}" "${FOLDED_CHOMPING_FIRST_BLOCK_SCALAR_SKILL}"
+
+INDENTED_BODY_SKILL="${TMP_DIR}/indented-body/SKILL.md"
+write_valid_skill "${INDENTED_BODY_SKILL}"
+perl -0pi -e 's/description: Use when validating VibeGuard skill format structure\./description: Use when validating VibeGuard skill format structure.\n  This indented body text is not a YAML block scalar./' "${INDENTED_BODY_SKILL}"
+indented_body_out="$(python3 "${VALIDATOR}" "${INDENTED_BODY_SKILL}" 2>&1 || true)"
+assert_contains "${indented_body_out}" "invalid indented frontmatter line before closing delimiter" "indented non-YAML frontmatter content fails"
+
 MISSING_CLOSING_WITH_BODY_RULE="${TMP_DIR}/missing-closing-body-rule/SKILL.md"
 write_valid_skill "${MISSING_CLOSING_WITH_BODY_RULE}"
 perl -0pi -e 's/^---\nname: demo-skill\ndescription: Use when validating VibeGuard skill format structure\.\n---\n/---\nname: demo-skill\ndescription: Use when validating VibeGuard skill format structure.\n/s' "${MISSING_CLOSING_WITH_BODY_RULE}"
@@ -118,7 +144,7 @@ INDENTED_BODY_BEFORE_CLOSE="${TMP_DIR}/indented-body-before-close/SKILL.md"
 write_valid_skill "${INDENTED_BODY_BEFORE_CLOSE}"
 perl -0pi -e 's/^---\nname: demo-skill\ndescription: Use when validating VibeGuard skill format structure\.\n---\n/---\nname: demo-skill\ndescription: Use when validating VibeGuard skill format structure.\n  This body line is not YAML frontmatter.\n---\n/s' "${INDENTED_BODY_BEFORE_CLOSE}"
 indented_body_out="$(python3 "${VALIDATOR}" "${INDENTED_BODY_BEFORE_CLOSE}" 2>&1 || true)"
-assert_contains "${indented_body_out}" "invalid frontmatter line before closing delimiter" "indented non-YAML before close fails"
+assert_contains "${indented_body_out}" "invalid indented frontmatter line before closing delimiter" "indented non-YAML before close fails"
 
 echo
 echo "=============================="
