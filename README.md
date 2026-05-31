@@ -274,7 +274,7 @@ Extracts non-obvious solutions as structured Skill files for future reuse.
 bash ~/vibeguard/setup.sh                              # Install (default: core profile)
 bash ~/vibeguard/setup.sh --profile minimal           # Minimal: pre-hooks only (lightweight)
 bash ~/vibeguard/setup.sh --profile full              # Full: adds Stop signal + Build Check + learning
-bash ~/vibeguard/setup.sh --profile strict            # Strict: same hook set as full, for stricter runtime policy
+bash ~/vibeguard/setup.sh --profile strict            # Strict: full hooks + Claude Code U-32 SessionStart constraint budget
 
 # Language selection (only install rules/guards for specified languages)
 bash ~/vibeguard/setup.sh --languages rust,python
@@ -298,7 +298,7 @@ which implies it) to make CI fail when the install is broken.
 | `minimal` | pre-write, pre-edit, pre-bash | Lightweight — only critical interception |
 | `core` (default) | minimal + post-edit, post-write, analysis-paralysis | Standard development |
 | `full` | core + stop-guard, learn-evaluator, post-build-check | Full defense + learning |
-| `strict` | same hook set as full | Maximum enforcement |
+| `strict` | full + Claude Code count-active-constraints (SessionStart/U-32); Codex native hooks remain full | Maximum enforcement |
 
 `setup.sh` also prepares the shared pre-commit wrapper at `~/.vibeguard/pre-commit` and installs this repository's git `pre-commit` and `pre-push` hooks during setup. The git `pre-push` hook owns force-push / branch-deletion protection; `pre-bash-guard` does not regex-match `git push --force`. To attach the wrapper to another repository, use `scripts/project-init.sh` or that repository's own install step.
 

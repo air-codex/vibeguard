@@ -297,7 +297,7 @@
       "modules": ["hooks-full"]
     },
     "strict": {
-      "description": "Maximum enforcement — same hook set as full, reserved for stricter runtime policy",
+      "description": "Maximum enforcement — full hooks plus Claude Code U-32 SessionStart constraint budget; Codex native hooks remain full",
       "extends": "full",
       "modules": []
     }

@@ -140,6 +140,32 @@ require_absent "scripts/setup/install.sh" 'Stop Gate' \
   "scripts/setup/install.sh usage comments must not use the old Stop Gate wording"
 require_present "scripts/setup/install.sh" 'Install full (including Stop signal/Build Check)' \
   "scripts/setup/install.sh usage comments must describe Stop signal"
+require_absent "scripts/setup/install.sh" 'Strict mode (same hook set as full)' \
+  "scripts/setup/install.sh usage comments must not hide the strict-only U-32 hook"
+require_present "scripts/setup/install.sh" 'Strict mode (full hooks + Claude Code U-32 SessionStart constraint budget)' \
+  "scripts/setup/install.sh usage comments must describe the strict-only U-32 hook"
+require_absent "README.md" 'Strict: same hook set as full' \
+  "README strict profile snippet must not hide the strict-only U-32 hook"
+require_present "README.md" 'Strict: full hooks + Claude Code U-32 SessionStart constraint budget' \
+  "README strict profile snippet must describe the strict-only U-32 hook"
+require_absent "README.md" '| `strict` | same hook set as full |' \
+  "README strict profile table must not hide the strict-only U-32 hook"
+require_present "README.md" '| `strict` | full + Claude Code count-active-constraints (SessionStart/U-32); Codex native hooks remain full | Maximum enforcement |' \
+  "README strict profile table must describe the strict-only U-32 hook"
+require_absent "docs/README_CN.md" '与 `full` 相同 hook 集合' \
+  "Chinese README strict profile table must not hide the strict-only U-32 hook"
+require_absent "docs/README_CN.md" '与 full 相同 hook 集合' \
+  "Chinese README strict profile table must not hide the old unquoted strict wording"
+require_present "docs/README_CN.md" '`full` + Claude Code `count-active-constraints` (SessionStart/U-32)；Codex 原生 hooks 仍为 `full`' \
+  "Chinese README strict profile table must describe the strict-only U-32 hook"
+require_absent "schemas/install-modules.json" 'same hook set as full' \
+  "install modules profile description must not hide the strict-only U-32 hook"
+require_present "schemas/install-modules.json" 'Maximum enforcement — full hooks plus Claude Code U-32 SessionStart constraint budget; Codex native hooks remain full' \
+  "install modules profile description must describe the strict-only U-32 hook"
+require_absent "schemas/vibeguard-project.schema.json" 'strict=same hook set as full' \
+  "project schema profile description must not hide the strict-only U-32 hook"
+require_present "schemas/vibeguard-project.schema.json" 'strict=full plus Claude Code U-32 SessionStart constraint budget; Codex native hooks remain full' \
+  "project schema profile description must describe the strict-only U-32 hook"
 
 require_present "hooks/manifest.json" 'Record uncommitted source code changes as a non-blocking Stop signal.' \
   "hooks manifest must describe stop-guard as a non-blocking Stop signal"
