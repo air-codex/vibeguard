@@ -28,6 +28,11 @@ require_present() {
   fi
 }
 
+require_absent "claude-md/vibeguard-rules.md" 'L1-L7 are enforced by Hooks' \
+  "managed VibeGuard rule block must not claim all L1-L7 layers are hook-enforced"
+require_present "claude-md/vibeguard-rules.md" '## Constraints (L1-L7 use rules, hooks, guards, and workflows)' \
+  "managed VibeGuard rule block must describe mixed layer coverage"
+
 require_absent "README.md" '| AI tries to finish with unverified changes | `stop-guard` | **Gate**' \
   "README.md must not describe stop-guard as a blocking Gate"
 require_present "README.md" '| AI tries to finish with unverified changes | `stop-guard` | **Signal**' \
@@ -92,6 +97,12 @@ require_absent "docs/CLAUDE.md.example" '| `Stop` has unverified source code cha
   "docs/CLAUDE.md.example must not describe stop-guard as a blocking Gate"
 require_absent "docs/CLAUDE.md.example" 'Stop Gate' \
   "docs/CLAUDE.md.example must not use the old Stop Gate wording"
+require_absent "docs/CLAUDE.md.example" 'Seven-Layer Defense (Seven-Layer Defense - Enforced)' \
+  "docs/CLAUDE.md.example must not claim the seven-layer block is fully enforced"
+require_present "docs/CLAUDE.md.example" '## Seven-Layer Defense (Mixed Coverage)' \
+  "docs/CLAUDE.md.example must name the seven-layer block as mixed coverage"
+require_present "docs/CLAUDE.md.example" 'Rules, guard scripts, hooks, and workflow commands provide the coverage. Not every layer is hook-blocked:' \
+  "docs/CLAUDE.md.example must explain mixed enforcement coverage"
 require_present "docs/CLAUDE.md.example" '| `Stop` has unverified source code changes | **Signal**' \
   "docs/CLAUDE.md.example must describe stop-guard as a signal"
 require_present "docs/CLAUDE.md.example" 'additionally enable Stop signal / Learn evaluator' \
@@ -110,6 +121,10 @@ require_absent "docs/CLAUDE.md.example" '| git `pre-push` detects non-fast-forwa
   "docs/CLAUDE.md.example must not suggest force-with-lease, which pre-push still blocks"
 require_absent "docs/CLAUDE.md.example" '- **Disable** force push — use `--force-with-lease`' \
   "docs/CLAUDE.md.example L7 guidance must not suggest force-with-lease, which pre-push still blocks"
+require_absent "docs/CLAUDE.md.example" '| **L7** | Disable AI tag / force push / key | **Hook + git hook interception** |' \
+  "docs/CLAUDE.md.example must not overstate L7 as only hook interception"
+require_present "docs/CLAUDE.md.example" '| **L7** | Disable AI tag / force push / key | Agent/review contract + pre-commit quality/build checks + git pre-push remote-history block |' \
+  "docs/CLAUDE.md.example must describe L7 mixed coverage"
 require_present "docs/CLAUDE.md.example" '| git `pre-push` detects non-fast-forward push / branch deletion | **Block** — protects remote history; rewrites and deletions require explicit human approval plus the repository bypass policy |' \
   "docs/CLAUDE.md.example must assign force-push protection to git pre-push"
 

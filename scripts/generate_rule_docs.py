@@ -391,7 +391,7 @@ Canonical source of truth: `rules/claude-rules/`
 | L4 | Data integrity | Rules injection + guards |
 | L5 | Minimal changes | Rules injection |
 | L6 | Process gates | `/vibeguard:preflight` + `/vibeguard:interview` + `/vibeguard:exec-plan` |
-| L7 | Commit discipline | `pre-commit-guard.sh` hook (block) |
+| L7 | Commit discipline | Agent/review contract + `pre-commit-guard.sh` quality/build gate + git `pre-push` remote-history gate |
 
 ---
 

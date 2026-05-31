@@ -77,9 +77,9 @@ Make a mistake → /vibeguard:learn → Analyze the root cause → Generate new 
 
 ---
 
-## Seven-Layer Defense (Seven-Layer Defense - Enforced)
+## Seven-Layer Defense (Mixed Coverage)
 
-Hooks + guard script **mechanized execution** without relying on AI consciousness:
+Rules, guard scripts, hooks, and workflow commands provide the coverage. Not every layer is hook-blocked:
 
 | Layers | Constraints | Execution Mode |
 |----|------|----------|
@@ -89,7 +89,7 @@ Hooks + guard script **mechanized execution** without relying on AI consciousnes
 | **L4** | Blank display with no data; API not invented | **Hook Warning** |
 | **L5** | Only do what is asked | Review constraints |
 | **L6** | Follow the canonical routing contract in `workflows/references/routing-contract.md` | Process constraints |
-| **L7** | Disable AI tag / force push / key | **Hook + git hook interception** |
+| **L7** | Disable AI tag / force push / key | Agent/review contract + pre-commit quality/build checks + git pre-push remote-history block |
 
 ---
 
