@@ -220,13 +220,23 @@ The text artifact emitted by `scripts/live_truth.py` uses these same sections so
     "unrelated_no_change": 2
   },
   "freshness_gaps": [],
+  "reasons": [
+    "repair count is greater than regression count with no regressions"
+  ],
+  "regression_justification": null,
+  "scored_against_agent": "claude-opus-4-7",
+  "scored_at": "2026-05-31",
   "scenarios": [
     {
       "scenario_id": "incident-1",
       "scenario_type": "target",
       "without_skill": "failure",
       "with_skill": "success",
-      "classification": "repair"
+      "classification": "repair",
+      "source": "baseline",
+      "scored_against_agent": "claude-opus-4-7",
+      "scored_at": "2026-05-31",
+      "notes": null
     }
   ]
 }

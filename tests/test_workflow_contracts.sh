@@ -139,6 +139,63 @@ else
 fi
 TOTAL=$((TOTAL + 1))
 if python3 - "${REPO_DIR}" >/dev/null <<'PY'; then
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+repo = Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location("workflow_contracts", repo / "scripts/lib/workflow_contracts.py")
+module = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+schema = json.loads((repo / "schemas/command-skill-validate-output.schema.json").read_text(encoding="utf-8"))
+payload = {
+    "command": "skill_validate",
+    "skill_name": "demo-skill",
+    "proposed_skill": "/tmp/demo/SKILL.md",
+    "decision_set": "baseline",
+    "verdict": "pass",
+    "counts": {
+        "repair": 1,
+        "regression": 0,
+        "no_change": 2,
+        "unrelated_regression": 0,
+        "unrelated_no_change": 2,
+    },
+    "freshness_gaps": [],
+    "reasons": ["repair count is greater than regression count with no regressions"],
+    "regression_justification": None,
+    "scored_against_agent": "claude-opus-4-7",
+    "scored_at": "2026-05-31",
+    "artifact_path": ".vibeguard/skill-validate/demo-skill-2026-05-31.jsonl",
+    "scenarios": [
+        {
+            "scenario_id": "incident-1",
+            "scenario_type": "target",
+            "without_skill": "failure",
+            "with_skill": "success",
+            "classification": "repair",
+            "source": "baseline",
+            "scored_against_agent": "claude-opus-4-7",
+            "scored_at": "2026-05-31",
+            "notes": None,
+        }
+    ],
+}
+errors = module.validate_instance(payload, schema)
+if errors:
+    raise SystemExit("\n".join(errors))
+PY
+  green "skill_validate schema accepts persisted artifact fields"
+  PASS=$((PASS + 1))
+else
+  red "skill_validate schema accepts persisted artifact fields"
+  FAIL=$((FAIL + 1))
+fi
+TOTAL=$((TOTAL + 1))
+if python3 - "${REPO_DIR}" >/dev/null <<'PY'; then
 import json
 import sys
 from pathlib import Path
