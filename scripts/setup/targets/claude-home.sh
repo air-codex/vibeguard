@@ -82,6 +82,9 @@ install_claude_home_assets() {
   safe_symlink "${REPO_DIR}/.claude/commands/vibeguard" "${CLAUDE_DIR}/commands/vibeguard"
   state_record_file "${CLAUDE_DIR}/commands/vibeguard" ".claude/commands/vibeguard" "symlink"
   green "  vibeguard commands -> ~/.claude/commands/vibeguard"
+  safe_symlink "${REPO_DIR}/.claude/commands/vg" "${CLAUDE_DIR}/commands/vg"
+  state_record_file "${CLAUDE_DIR}/commands/vg" ".claude/commands/vg" "symlink"
+  green "  vg shortcut commands -> ~/.claude/commands/vg"
   echo
 
   echo "Step 5.5: Install native rules (symlinked)"
@@ -248,6 +251,11 @@ check_claude_home_installation() {
   else
     red "[MISSING] vibeguard commands not in ~/.claude/commands/"
   fi
+  if [[ -L "${CLAUDE_DIR}/commands/vg" ]]; then
+    green "[OK] vg shortcut commands symlinked to ~/.claude/commands/"
+  else
+    red "[MISSING] vg shortcut commands not in ~/.claude/commands/"
+  fi
 
   local expected_agent_count=0 missing_agent_count=0 unmanaged_agent_count=0
   local missing_agents="" unmanaged_agents="" agent name installed_agent
@@ -362,6 +370,7 @@ clean_claude_home_installation() {
   fi
 
   rm -f "${CLAUDE_DIR}/commands/vibeguard" 2>/dev/null || rm -rf "${CLAUDE_DIR}/commands/vibeguard" 2>/dev/null || true
+  rm -f "${CLAUDE_DIR}/commands/vg" 2>/dev/null || rm -rf "${CLAUDE_DIR}/commands/vg" 2>/dev/null || true
   local skill_links source_path skill
   skill_links="$(manifest_skill_links_for_cleanup "~/.claude/skills/")"
   while IFS=$'\t' read -r source_path skill; do

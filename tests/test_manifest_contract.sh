@@ -116,6 +116,20 @@ assert_contains "${claude_skills_out}" $'workflows/auto-optimize\tauto-optimize'
 codex_skills_out="$(python3 "${MANIFEST_HELPER}" skill-links --target "~/.codex/skills/")"
 assert_contains "${codex_skills_out}" $'workflows/plan-flow\tplan-flow' "manifest declares Codex workflow skill links"
 assert_contains "${codex_skills_out}" $'skills/trajectory-review\ttrajectory-review' "manifest declares Codex core skill links"
+command_paths_out="$(python3 - "${REPO_DIR}/schemas/install-modules.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+for module in manifest["modules"]:
+    if module.get("id") == "commands":
+        print("\n".join(module["paths"]))
+        break
+PY
+)"
+assert_contains "${command_paths_out}" ".claude/commands/vibeguard/" "manifest declares full command path"
+assert_contains "${command_paths_out}" ".claude/commands/vg/" "manifest declares vg shortcut command path"
 BAD_MANIFEST="${TMP_DIR}/bad-install-modules.json"
 printf '{"modules": {}}\n' > "${BAD_MANIFEST}"
 assert_cmd_fail "skill-links rejects malformed modules shape" python3 "${MANIFEST_HELPER}" skill-links --manifest-file "${BAD_MANIFEST}" --target "~/.claude/skills/"
