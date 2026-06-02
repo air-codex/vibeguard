@@ -74,6 +74,10 @@ For repository layout ownership, see [Directory Map](docs/directory-map.md).
 
 ![VibeGuard demo](docs/assets/demo.gif)
 
+Real Codex hook output:
+
+![Codex L1 duplicate path interception](docs/assets/codex-l1-duplicate-path-blocked.png)
+
 ```text
 You:  "Add a login endpoint"
 
@@ -259,6 +263,14 @@ bash ~/vibeguard/scripts/verify/doc-freshness-check.sh  # Rule-guard coverage ch
 Doctors are read-only diagnosis wrappers over the existing defense system. They summarize installation state, capability gaps, noisy hooks, recent events, and repair commands; hooks and guards remain the enforcement layer that blocks or warns during real tool execution.
 
 Hook latency is also a product contract. See [Hook Latency Contract](docs/reference/hook-latency-contract.md) for per-hook P95 budgets, hotspot attribution, and the static gates that block expensive hook patterns.
+
+## Tested and Evaluated
+
+VibeGuard guards its own behavior — the test suite and eval harness ship in the repo, not as an afterthought.
+
+- **Behavior eval (CI-blocking):** a zero-cost gate that runs the real guard hooks end-to-end and asserts the actual block/deny decision on both the Claude Code hook and the Codex wrapper. Enforced in CI at a 100% pass / 100% coverage threshold — removing a required platform slice fails the build (`eval/run_behavior_eval.py`).
+- **Rule-detection benchmark:** a 40-sample, schema-validated, digest-pinned dataset (planted rule violations across SEC / Python / TypeScript / Go / Rust / universal rules, plus clean controls) scored on detection rate, a severity-weighted score, and **per-severity Expected Calibration Error (ECE)** — calibration, not just accuracy. Run manually with `python3 eval/run_eval.py` (uses the Claude API; not a merge gate).
+- **Test suite:** ~40 hook/guard test scripts under `tests/` and 100+ unit tests in the Rust `vibeguard-runtime` crate. CI runs on Linux, macOS, and Windows.
 
 ## Learning System
 
