@@ -8,6 +8,7 @@ set -euo pipefail
 
 source "$(dirname "$0")/log.sh"
 vg_start_timer
+export VIBEGUARD_HOOK_START_MS="${_VG_START_MS:-}"
 
 INPUT=$(cat)
 

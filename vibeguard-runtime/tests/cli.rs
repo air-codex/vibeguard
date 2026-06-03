@@ -92,6 +92,7 @@ fn run_post_write_check(input: &str, log_file: &std::path::Path) -> std::process
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .env("VIBEGUARD_HOOK_START_MS", "1")
         .spawn()
         .unwrap();
     child
@@ -151,11 +152,9 @@ fn post_write_check_silent_pass_for_non_source() {
     let out = run_post_write_check(&input, &log_file);
     assert_eq!(out.status.code(), Some(0));
     assert!(out.stdout.is_empty());
-    assert!(
-        fs::read_to_string(&log_file)
-            .unwrap()
-            .contains("Non-source file")
-    );
+    let log_text = fs::read_to_string(&log_file).unwrap();
+    assert!(log_text.contains("Non-source file"));
+    assert!(log_text.contains("\"duration_ms\":"), "{log_text}");
     let _ = fs::remove_dir_all(root);
 }
 
