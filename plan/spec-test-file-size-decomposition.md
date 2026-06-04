@@ -116,7 +116,7 @@ Run these commands before closing the issue:
 bash tests/test_setup.sh
 bash tests/test_codex_runtime.sh
 cargo test --manifest-path vibeguard-runtime/Cargo.toml
-find . -path './.git' -prune -o -type f -print | xargs wc -l | sort -nr | head -20
+git ls-files -z | xargs -0 wc -l | sort -nr | head -20
 ```
 
 If the implementation touches documentation paths or CI command references, also

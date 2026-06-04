@@ -64,7 +64,7 @@ tmp_repo=$(mktemp -d)
 ## Goals
 
 - G1: App-server hook dispatch honors project policy from `.vibeguard.json` for
-  `disabled_hooks`, `disabled_rules`, profile, and enforcement mode.
+  `disabled_hooks`, profile, and enforcement mode.
 - G2: Missing required pre-hooks fail visibly instead of passing silently.
 - G3: Behavior stays consistent with the existing shell wrappers.
 - G4: The Rust app-server path remains usable without introducing a new runtime
@@ -86,7 +86,6 @@ hook. It should load `.vibeguard.json` from the active project directory and mir
 the existing wrapper-level decisions for the fields the app-server path needs:
 
 - `disabled_hooks`
-- `disabled_rules`
 - profile / enforcement mode
 - invalid project policy handling
 
