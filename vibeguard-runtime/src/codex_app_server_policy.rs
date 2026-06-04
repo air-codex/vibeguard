@@ -163,6 +163,43 @@ fn load_project_config(path: &Path) -> Result<ProjectConfig, String> {
     )?;
     let disabled_hooks = optional_string_array(path, object, "disabled_hooks")?;
     validate_disabled_hooks(path, &disabled_hooks)?;
+    validate_string_enum_array(
+        path,
+        object,
+        "languages",
+        &["rust", "python", "go", "typescript", "javascript"],
+    )?;
+    validate_disabled_rules(path, object)?;
+    validate_string_enum_array(
+        path,
+        object,
+        "disabled_guards",
+        &[
+            "check_any_abuse",
+            "check_circular_deps",
+            "check_code_slop",
+            "check_component_duplication",
+            "check_console_residual",
+            "check_dead_shims",
+            "check_declaration_execution_gap",
+            "check_defer_in_loop",
+            "check_dependency_layers",
+            "check_duplicate_constants",
+            "check_duplicate_types",
+            "check_duplicates",
+            "check_error_handling",
+            "check_goroutine_leak",
+            "check_naming_convention",
+            "check_nested_locks",
+            "check_semantic_effect",
+            "check_single_source_of_truth",
+            "check_taste_invariants",
+            "check_test_integrity",
+            "check_unwrap_in_prod",
+            "check_workspace_consistency",
+        ],
+    )?;
+    validate_gc_config(path, object)?;
 
     Ok(ProjectConfig {
         enforcement,
@@ -266,6 +303,97 @@ fn validate_disabled_hooks(path: &Path, hooks: &[String]) -> Result<(), String> 
         ) {
             return Err(format!(
                 "VibeGuard project config invalid: {} disabled_hooks contains unsupported hook {hook}",
+                path.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_string_enum_array(
+    path: &Path,
+    object: &serde_json::Map<String, Value>,
+    field: &str,
+    allowed: &[&str],
+) -> Result<(), String> {
+    let values = optional_string_array(path, object, field)?;
+    for (index, value) in values.iter().enumerate() {
+        if !allowed.iter().any(|allowed| allowed == &value.as_str()) {
+            return Err(format!(
+                "VibeGuard project config invalid: {} .{field}.{index}: unsupported value {value}",
+                path.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_disabled_rules(
+    path: &Path,
+    object: &serde_json::Map<String, Value>,
+) -> Result<(), String> {
+    let rules = optional_string_array(path, object, "disabled_rules")?;
+    for (index, rule) in rules.iter().enumerate() {
+        if !valid_disabled_rule_id(rule) {
+            return Err(format!(
+                "VibeGuard project config invalid: {} .disabled_rules.{index}: unsupported rule id {rule}",
+                path.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn valid_disabled_rule_id(rule: &str) -> bool {
+    let Some((prefix, suffix)) = rule.split_once('-') else {
+        return false;
+    };
+    if !matches!(
+        prefix,
+        "SEC" | "RS" | "GO" | "TS" | "PY" | "U" | "W" | "TASTE"
+    ) {
+        return false;
+    }
+    !suffix.is_empty()
+        && suffix
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+}
+
+fn validate_gc_config(path: &Path, object: &serde_json::Map<String, Value>) -> Result<(), String> {
+    let Some(value) = object.get("gc") else {
+        return Ok(());
+    };
+    let Some(gc) = value.as_object() else {
+        return Err(format!(
+            "VibeGuard project config invalid: {} .gc: expected object",
+            path.display()
+        ));
+    };
+    let allowed = [
+        "log_threshold_mb",
+        "archive_retain_months",
+        "worktree_max_days",
+        "session_metrics_retain_days",
+        "learning_window_days",
+        "gc_log_max_kb",
+    ];
+    for key in gc.keys() {
+        if !allowed.iter().any(|allowed| allowed == &key.as_str()) {
+            return Err(format!(
+                "VibeGuard project config invalid: {} .gc.{key}: unknown property",
+                path.display()
+            ));
+        }
+    }
+    for (key, value) in gc {
+        let valid_positive_integer = match value.as_i64() {
+            Some(number) => number >= 1,
+            None => false,
+        };
+        if !valid_positive_integer {
+            return Err(format!(
+                "VibeGuard project config invalid: {} .gc.{key}: expected integer >= 1",
                 path.display()
             ));
         }
@@ -414,6 +542,56 @@ mod tests {
         );
         if let Err(err) = fs::remove_dir_all(&repo) {
             panic!("temp policy dir should be removed: {err}");
+        }
+    }
+
+    #[test]
+    fn malformed_allowed_project_config_fields_return_policy_error() {
+        let cases = [
+            (
+                "bad_languages_type",
+                r#"{"languages":[123]}"#,
+                "field languages must contain only strings",
+            ),
+            (
+                "bad_disabled_rule",
+                r#"{"disabled_rules":["not-a-rule"]}"#,
+                ".disabled_rules.0: unsupported rule id not-a-rule",
+            ),
+            (
+                "bad_disabled_guard",
+                r#"{"disabled_guards":["missing_guard"]}"#,
+                ".disabled_guards.0: unsupported value missing_guard",
+            ),
+            ("bad_gc_type", r#"{"gc":"bad"}"#, ".gc: expected object"),
+            (
+                "bad_gc_threshold",
+                r#"{"gc":{"log_threshold_mb":0}}"#,
+                ".gc.log_threshold_mb: expected integer >= 1",
+            ),
+            (
+                "bad_gc_key",
+                r#"{"gc":{"unexpected_gc_key":1}}"#,
+                ".gc.unexpected_gc_key: unknown property",
+            ),
+        ];
+
+        for (name, config, expected) in cases {
+            let repo = temp_policy_dir(name);
+            if let Err(err) = fs::write(repo.join(".vibeguard.json"), config) {
+                panic!("project config should be written: {err}");
+            }
+
+            let decision =
+                evaluate_hook_policy("pre-edit-guard.sh", repo.to_str(), &HashMap::new());
+
+            assert!(
+                matches!(decision, HookPolicyDecision::Error(reason) if reason.contains(expected)),
+                "expected policy error containing {expected}"
+            );
+            if let Err(err) = fs::remove_dir_all(&repo) {
+                panic!("temp policy dir should be removed: {err}");
+            }
         }
     }
 
