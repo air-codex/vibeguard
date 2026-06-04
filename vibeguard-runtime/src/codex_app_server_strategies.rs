@@ -145,9 +145,16 @@ impl CommandApprovalStrategy {
             return false;
         }
 
+        if result.decision == "skip" {
+            let text = primary_feedback_text("pre-bash-guard.sh", &result, "");
+            emit_warning(write_to_server, text, thread_id.as_deref());
+            self.observe(command, thread_id.as_deref(), state, write_to_server);
+            return false;
+        }
+
         if !matches!(
             result.decision.as_str(),
-            "pass" | "allow" | "block" | "hook_error"
+            "pass" | "allow" | "block" | "hook_error" | "skip"
         ) {
             if self.policy.blocks_enabled() {
                 write_to_server(json!({"id": msg_id, "result": {"decision": "decline"}}));
