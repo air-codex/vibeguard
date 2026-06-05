@@ -376,13 +376,14 @@ def slice_report(results: list[dict[str, Any]]) -> dict[str, dict[str, dict[str,
 
 
 def run_model_gate(args: argparse.Namespace) -> dict[str, Any]:
+    artifact_root = str(Path(args.artifact_root).resolve())
     command = [
         sys.executable,
         str(REPO_ROOT / "eval" / "run_eval.py"),
         "--model",
         args.model,
         "--artifact-root",
-        args.artifact_root,
+        artifact_root,
     ]
     if args.model_rules:
         command.extend(["--rules", args.model_rules])
