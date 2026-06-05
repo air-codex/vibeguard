@@ -201,4 +201,3 @@ run_wrapper() {
     --repo-dir "${app_repo}" \
     --codex-command "bash '${child_script}'"
 }
-

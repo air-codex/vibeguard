@@ -287,4 +287,3 @@ assert_cmd "retired cleanup removes tracked retired Claude skill" test ! -L "${r
 assert_cmd "retired cleanup removes tracked retired Codex skill" test ! -L "${retired_home}/.codex/skills/old-flow"
 assert_cmd "retired cleanup preserves untracked user skill" test -L "${retired_home}/.claude/skills/user-skill"
 assert_cmd "retired cleanup preserves retired regular directories" test -d "${retired_home}/.claude/skills/old-dir"
-

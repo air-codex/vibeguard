@@ -180,4 +180,3 @@ status_parse_out="$(
     | "${VIBEGUARD_RUNTIME}" codex-status-from-output
 )"
 assert_contains "${status_parse_out}" $'block\t' "runtime maps nested Codex deny status"
-

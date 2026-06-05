@@ -240,4 +240,3 @@ missing_posttool_adapter_out="$(
 )"
 assert_contains "${missing_posttool_adapter_out}" '"decision": "block"' "missing PostToolUse adapter emits visible feedback"
 assert_codex_posttool_output_contract "${missing_posttool_adapter_out}" "missing PostToolUse adapter output matches Codex contract"
-

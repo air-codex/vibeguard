@@ -421,4 +421,3 @@ assert_cmd "~/.codex/AGENTS.md includes key Codex-visible anchors" bash -c "grep
 assert_cmd "templates/AGENTS.md includes the chat contract anchor" grep -qF "${CHAT_CONTRACT_ANCHOR}" "${REPO_DIR}/templates/AGENTS.md"
 assert_cmd "docs/CLAUDE.md.example includes the chat contract anchor" grep -qF "${CHAT_CONTRACT_ANCHOR}" "${REPO_DIR}/docs/CLAUDE.md.example"
 assert_cmd "chat contract block matches across source, installed output, and templates" assert_chat_contract_blocks_match
-

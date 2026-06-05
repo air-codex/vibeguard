@@ -154,4 +154,3 @@ assert_contains "${posttool_out}" '"additionalContext": "build failed"' "run-hoo
 assert_codex_posttool_output_contract "${posttool_out}" "posttool block matches Codex PostToolUse output contract"
 assert_contains "$(cat "${POSTTOOL_DIAG_FILE}")" '"status": "running"' "run-hook-codex writes running status before posttool output"
 assert_contains "$(cat "${POSTTOOL_DIAG_FILE}")" '"status": "block"' "run-hook-codex writes final status for posttool output"
-
