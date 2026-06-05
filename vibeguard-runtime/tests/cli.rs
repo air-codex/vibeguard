@@ -122,6 +122,10 @@ fn observe_export_prometheus_omits_raw_sensitive_labels() {
     assert_eq!(out.status.code(), Some(0));
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("vibeguard_event_total"), "{stdout}");
+    assert!(
+        stdout.contains("vibeguard_tool_total{tool=\"Edit\"} 1"),
+        "{stdout}"
+    );
     assert!(stdout.contains("rule_id=\"U-16\""), "{stdout}");
     assert!(
         stdout.contains("reason_code=\"rule_violation\""),

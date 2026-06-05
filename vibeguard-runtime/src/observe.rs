@@ -28,6 +28,7 @@ struct ObserveArgs {
 struct Aggregates {
     total_events: u64,
     hook_total: BTreeMap<(String, String), u64>,
+    tool_total: BTreeMap<String, u64>,
     event_total: BTreeMap<(String, String, String, String, String, String, String), u64>,
     violation_total: BTreeMap<(String, String, String, String, String, String), u64>,
     duration_sum: BTreeMap<String, f64>,
@@ -203,6 +204,7 @@ impl Aggregates {
             .hook_total
             .entry((hook.clone(), event_decision.clone()))
             .or_default() += 1;
+        *self.tool_total.entry(tool.clone()).or_default() += 1;
         *self
             .event_total
             .entry((
@@ -403,6 +405,22 @@ fn render_aggregates(aggr: &Aggregates) -> String {
     out.push('\n');
     push_header(
         &mut out,
+        "vibeguard_tool_total",
+        "Total events by tool type",
+        "counter",
+    );
+    for (tool, count) in &aggr.tool_total {
+        push_metric(
+            &mut out,
+            "vibeguard_tool_total",
+            &[("tool", tool)],
+            &count.to_string(),
+        );
+    }
+
+    out.push('\n');
+    push_header(
+        &mut out,
         "vibeguard_event_total",
         "Total VibeGuard events by low-cardinality labels",
         "counter",
@@ -542,6 +560,7 @@ mod tests {
         let out = render(input);
 
         assert!(out.contains("vibeguard_event_total"));
+        assert!(out.contains("vibeguard_tool_total{tool=\"Edit\"} 1"));
         assert!(out.contains("rule_id=\"U-16\""));
         assert!(out.contains("reason_code=\"rule_violation\""));
         assert!(out.contains("file_ext=\"rs\""));

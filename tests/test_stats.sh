@@ -195,6 +195,7 @@ PY
 
 prom_out="$(VIBEGUARD_LOG_DIR="${TMP_DIR}/prom-log" VIBEGUARD_RUNTIME="${RUNTIME}" bash "${EXPORTER}" --since all 2>&1)"
 assert_contains "${prom_out}" "vibeguard_event_total" "Prometheus event counter is emitted"
+assert_contains "${prom_out}" 'vibeguard_tool_total{tool="Edit"} 1' "Legacy tool counter is preserved"
 assert_contains "${prom_out}" 'rule_id="U-16"' "Rule id is derived safely"
 assert_contains "${prom_out}" 'reason_code="rule_violation"' "Reason code is derived safely"
 assert_contains "${prom_out}" 'file_ext="rs"' "File extension is derived safely"
