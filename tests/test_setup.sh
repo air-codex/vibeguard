@@ -543,6 +543,21 @@ assert_cmd "scripts/setup/regenerate-hooks-from-manifest.sh syntax is correct" b
 assert_cmd "scripts/ci/validate-hooks-manifest.sh syntax is correct" bash -n "${REPO_DIR}/scripts/ci/validate-hooks-manifest.sh"
 assert_cmd "CLAUDE.md template uses generated rule count placeholder" grep -q "__VIBEGUARD_RULE_COUNT__" "${REPO_DIR}/claude-md/vibeguard-rules.md"
 
+header "setup help"
+setup_help_rc=0
+setup_help_out="$(bash "${REPO_DIR}/setup.sh" --help 2>&1)" || setup_help_rc=$?
+TOTAL=$((TOTAL + 1))
+if [[ "${setup_help_rc}" == "0" ]]; then
+  green "setup.sh --help exits 0"
+  PASS=$((PASS + 1))
+else
+  red "setup.sh --help exits 0 (exit code: ${setup_help_rc})"
+  FAIL=$((FAIL + 1))
+fi
+assert_contains "${setup_help_out}" "Usage: bash setup.sh" "setup.sh --help prints usage"
+assert_contains "${setup_help_out}" "--profile minimal|core|full|strict" "setup.sh --help documents profiles"
+assert_not_contains "${setup_help_out}" "unknown argument" "setup.sh --help does not report unknown argument"
+
 header "install-state argv safety"
 install_state_home="${TMP_HOME}/install-state quote ' home"
 install_state_repo="${TMP_HOME}/repo quote ' newline"$'\n'"dir"
