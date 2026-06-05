@@ -11,6 +11,36 @@ done
 REPO_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SETUP_DIR="${REPO_DIR}/scripts/setup"
 
+print_usage() {
+  cat <<'USAGE'
+Usage: bash setup.sh [command] [options]
+
+Commands:
+  install              Install VibeGuard (default when no command is given)
+  --check             Verify installation health
+  --clean             Uninstall managed VibeGuard assets
+  --codex-status      Show read-only Codex-specific status
+  packs               Manage guard packs
+  demo                Run guard-pack demo
+  --help, -h          Show this help
+
+Install options:
+  --yes, -y
+  --dry-run
+  --build-from-source
+  --runtime-version vX.Y.Z
+  --with-scheduler
+  --force-overwrite
+  --profile minimal|core|full|strict
+  --languages lang1,lang2
+
+Examples:
+  bash setup.sh --yes
+  bash setup.sh --check --strict
+  bash setup.sh --profile strict --languages rust,python
+USAGE
+}
+
 run_setup() {
   local script="$1"
   shift || true
@@ -24,6 +54,9 @@ run_setup() {
 }
 
 case "${1:-}" in
+  --help|-h|help)
+    print_usage
+    ;;
   --check)
     shift || true
     run_setup "check.sh" "$@"
