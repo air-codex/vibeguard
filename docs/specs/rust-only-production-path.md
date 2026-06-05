@@ -36,7 +36,7 @@ It does not require every repository script to be rewritten in Rust.
 
 ## 2. Verified Facts
 
-Verified from the current `main` checkout on 2026-06-05:
+Verified from the baseline `main` checkout captured on 2026-06-05:
 
 - The repo is on `900fd570807407133c0e2cc02bd756f84c7cd0a8`; the latest
   release tag is `v1.1.2`.
@@ -56,7 +56,7 @@ Verified from the current `main` checkout on 2026-06-05:
   `hooks/_lib/codex_apply_patch_adapter.py` as fallback.
 - `hooks/pre-edit-guard.sh` already attempts `vibeguard-runtime pre-edit-check`
   first, but still contains an inline Python implementation for the full path.
-- Current source inventory excluding `target`: 41 Rust files, 48 Python files,
+- Baseline source inventory excluding `target`: 41 Rust files, 48 Python files,
   and 223 shell files.
 
 The previous install-friction spec explicitly left single-runtime consolidation
