@@ -7,28 +7,41 @@ fi
 _VG_POLICY_SH_LOADED=1
 
 _VG_POLICY_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-_VG_POLICY_PY="${_VG_POLICY_LIB_DIR}/policy.py"
 
 vg_policy_user_config_file() {
   printf '%s' "${_VG_CONFIG_FILE:-${VIBEGUARD_CONFIG_FILE:-${VIBEGUARD_LOG_DIR:-${HOME}/.vibeguard}/config.json}}"
 }
 
+vg_policy_runtime_path() {
+  local helper_dir wrapper_dir candidate
+  helper_dir="${_VG_POLICY_LIB_DIR}"
+  wrapper_dir="${WRAPPER_DIR:-$(cd "${helper_dir}/.." && pwd)}"
+  for candidate in \
+    "${VIBEGUARD_POLICY_RUNTIME:-}" \
+    "${wrapper_dir}/../vibeguard-runtime/target/release/vibeguard-runtime" \
+    "${HOME}/.vibeguard/installed/bin/vibeguard-runtime" \
+    "${wrapper_dir}/vibeguard-runtime" \
+    "${wrapper_dir}/../vibeguard-runtime/target/debug/vibeguard-runtime" \
+    "${VIBEGUARD_RUNTIME:-}"; do
+    if [[ -n "${candidate}" && -f "${candidate}" && -x "${candidate}" ]]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
+
 vg_policy_check_hook() {
   local hook_name="$1"
-  local output status
+  local output status runtime_path
 
   VG_POLICY_REASON=""
   VG_POLICY_KIND=""
   VG_POLICY_ENFORCEMENT="block"
   export VIBEGUARD_POLICY_ENFORCEMENT="block"
 
-  if ! command -v python3 >/dev/null 2>&1; then
-    VG_POLICY_REASON="VibeGuard policy error: python3 is required for runtime policy checks."
-    VG_POLICY_KIND="policy_error"
-    return 20
-  fi
-  if [[ ! -f "${_VG_POLICY_PY}" ]]; then
-    VG_POLICY_REASON="VibeGuard policy error: policy helper missing at ${_VG_POLICY_PY}"
+  if ! runtime_path="$(vg_policy_runtime_path)"; then
+    VG_POLICY_REASON="VibeGuard policy error: vibeguard-runtime is required for runtime policy checks."
     VG_POLICY_KIND="policy_error"
     return 20
   fi
@@ -36,7 +49,7 @@ vg_policy_check_hook() {
   status=0
   output="$(
     VIBEGUARD_USER_CONFIG_FILE="$(vg_policy_user_config_file)" \
-      python3 "${_VG_POLICY_PY}" check "${hook_name}" 2>&1
+      "${runtime_path}" runtime-policy-check "${hook_name}" 2>&1
   )" || status=$?
 
   case "${status}" in
