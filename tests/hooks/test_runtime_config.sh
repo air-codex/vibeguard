@@ -30,7 +30,7 @@ PY
 run_pre_write() {
   local cfg="$1"
   shift
-  env VIBEGUARD_LOG_DIR="$(make_log_dir)" VIBEGUARD_CONFIG_FILE="$cfg" "$@" \
+  env -u VIBEGUARD_WRITE_MODE VIBEGUARD_LOG_DIR="$(make_log_dir)" VIBEGUARD_CONFIG_FILE="$cfg" "$@" \
     bash hooks/pre-write-guard.sh < "$prewrite_input"
 }
 
