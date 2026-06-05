@@ -1,3 +1,6 @@
+use crate::codex_app_server_policy::{
+    HookPolicyDecision, evaluate_hook_policy, required_hook_missing_message,
+};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::io::Write;
@@ -77,6 +80,17 @@ impl HookResult {
             failed: true,
         }
     }
+
+    pub fn skip(reason: impl Into<String>) -> Self {
+        Self {
+            decision: "skip".into(),
+            output: String::new(),
+            payloads: Vec::new(),
+            reason: Some(reason.into()),
+            updated_command: None,
+            failed: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -99,7 +113,15 @@ impl HookRunner {
         env_overrides: &HashMap<String, String>,
     ) -> HookResult {
         let hook_path = self.hooks_dir.join(hook_name);
-        if !hook_path.exists() {
+        let warn_mode = match evaluate_hook_policy(hook_name, cwd, env_overrides) {
+            HookPolicyDecision::Run { warn_mode, .. } => warn_mode,
+            HookPolicyDecision::Skip(reason) => return HookResult::skip(reason),
+            HookPolicyDecision::Error(reason) => return HookResult::hook_error(reason),
+        };
+        if !hook_path.is_file() {
+            if let Some(reason) = required_hook_missing_message(hook_name, &hook_path) {
+                return HookResult::hook_error(reason);
+            }
             return HookResult::pass();
         }
 
@@ -176,15 +198,40 @@ impl HookRunner {
             None
         };
 
-        HookResult {
+        let mut result = HookResult {
             decision,
             output: stripped,
             payloads,
             reason,
             updated_command,
             failed: false,
+        };
+        if warn_mode {
+            downgrade_to_warn(&mut result);
         }
+        result
     }
+}
+
+fn downgrade_to_warn(result: &mut HookResult) {
+    if result.failed || result.decision == "hook_error" {
+        return;
+    }
+    if !matches!(result.decision.as_str(), "block" | "gate" | "escalate") {
+        return;
+    }
+
+    result.decision = "warn".into();
+    result.updated_command = None;
+    result.reason = Some(
+        match result.reason.as_deref().filter(|reason| !reason.is_empty()) {
+            Some(reason) => format!("VIBEGUARD warn-mode advisory: {reason}"),
+            None => {
+                "VIBEGUARD warn-mode advisory: hook result downgraded by project enforcement=warn"
+                    .into()
+            }
+        },
+    );
 }
 
 fn extract_payloads(output: &str) -> Vec<Value> {

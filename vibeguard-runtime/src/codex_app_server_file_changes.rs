@@ -344,7 +344,7 @@ impl FileChangeApprovalStrategy {
     fn is_blocking_pre_result(&self, result: &HookResult) -> bool {
         if !matches!(
             result.decision.as_str(),
-            "pass" | "allow" | "warn" | "block" | "hook_error"
+            "pass" | "allow" | "warn" | "block" | "hook_error" | "skip"
         ) {
             return true;
         }

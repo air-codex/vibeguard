@@ -99,6 +99,12 @@ command="${1:-}"
 shift || true
 
 case "$command" in
+  append-jsonl)
+    file="${1:?append-jsonl requires a file path}"
+    line="$(cat)"
+    mkdir -p "$(dirname "$file")"
+    printf '%s\n' "$line" >> "$file"
+    ;;
   json-field)
     strict=0
     if [[ "${1:-}" == "--strict" ]]; then
