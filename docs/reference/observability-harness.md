@@ -97,7 +97,7 @@ Use the smallest surface that answers the question.
 |---|---|
 | What happened in this project? | `bash ~/vibeguard/scripts/stats.sh` or `vibeguard-runtime hook-status --mode focused` |
 | What happened globally? | `bash ~/vibeguard/scripts/stats.sh --scope global` |
-| Why did this session have friction? | `session-metrics.jsonl`, `bash ~/vibeguard/scripts/quality-grader.sh`, and `correction_signals` |
+| Why did this session have friction? | `session-metrics.jsonl` and `correction_signals` |
 | Which hook is slow? | `vibeguard-runtime hook-status --mode full --slow-ms 2000` or `bash ~/vibeguard/scripts/hook-health.sh 24` |
 | Did eval quality regress? | `python3 eval/run_behavior_eval.py --fail-on-threshold` and `python3 eval/summarize_runs.py` |
 
