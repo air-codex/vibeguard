@@ -8,6 +8,8 @@ hook_test_init
 
 WORK_DIR=$(mktemp -d)
 trap 'rm -rf "$WORK_DIR" "$VIBEGUARD_LOG_DIR"' EXIT
+RUNTIME_BIN="${REPO_DIR}/vibeguard-runtime/target/debug/vibeguard-runtime"
+cargo build --manifest-path "${REPO_DIR}/vibeguard-runtime/Cargo.toml" >/dev/null
 
 make_home() {
   local home_dir="$1"
@@ -39,6 +41,7 @@ run_claude_wrapper() {
   cd "${project_dir}"
   printf '%s' "${input}" \
     | HOME="${home_dir}" VIBEGUARD_LOG_DIR="${home_dir}/.vibeguard" \
+      VIBEGUARD_POLICY_RUNTIME="${RUNTIME_BIN}" \
       bash "${REPO_DIR}/hooks/run-hook.sh" "${hook_name}"
 }
 
@@ -47,6 +50,7 @@ run_codex_wrapper() {
   cd "${project_dir}"
   printf '%s' "${input}" \
     | HOME="${home_dir}" VIBEGUARD_LOG_DIR="${home_dir}/.vibeguard" \
+      VIBEGUARD_POLICY_RUNTIME="${RUNTIME_BIN}" \
       bash "${REPO_DIR}/hooks/run-hook-codex.sh" "${hook_name}"
 }
 
@@ -62,6 +66,7 @@ const child = spawn('bash', [`${repoDir}/hooks/run-hook.sh`, hookName], {
     ...process.env,
     HOME: homeDir,
     VIBEGUARD_LOG_DIR: `${homeDir}/.vibeguard`,
+    VIBEGUARD_POLICY_RUNTIME: `${repoDir}/vibeguard-runtime/target/debug/vibeguard-runtime`,
   },
   stdio: ['pipe', 'pipe', 'pipe'],
 });
@@ -102,6 +107,34 @@ pretool_block_input='{"tool_input":{"command":"git push --force"}}'
 codex_pretool_input='{"hook_event_name":"PreToolUse","tool_input":{"command":"git push --force"}}'
 pretool_danger_input='{"tool_input":{"command":"git clean -f"}}'
 codex_pretool_danger_input='{"hook_event_name":"PreToolUse","tool_input":{"command":"git clean -f"}}'
+
+header "runtime policy — runtime resolver"
+explicit_runtime="${WORK_DIR}/explicit-runtime"
+printf '#!/usr/bin/env bash\nexit 0\n' > "${explicit_runtime}"
+chmod +x "${explicit_runtime}"
+resolver_out="$(
+  WRAPPER_DIR="${REPO_DIR}/hooks" VIBEGUARD_POLICY_RUNTIME="${explicit_runtime}" bash -c '
+    source hooks/_lib/policy.sh
+    vg_policy_runtime_path
+  '
+)"
+assert_contains "${resolver_out}" "${explicit_runtime}" "runtime policy resolver honors explicit VIBEGUARD_POLICY_RUNTIME before checkout binaries"
+
+resolver_home="${WORK_DIR}/home-resolver"
+mkdir -p "${resolver_home}/.vibeguard/installed/bin"
+stale_installed_runtime="${resolver_home}/.vibeguard/installed/bin/vibeguard-runtime"
+printf '#!/usr/bin/env bash\necho stale-installed-runtime >&2\nexit 2\n' > "${stale_installed_runtime}"
+chmod +x "${stale_installed_runtime}"
+resolver_out="$(
+  WRAPPER_DIR="${REPO_DIR}/hooks" \
+  HOME="${resolver_home}" \
+  VIBEGUARD_RUNTIME="${explicit_runtime}" \
+  bash -c '
+    source hooks/_lib/policy.sh
+    vg_policy_runtime_path
+  '
+)"
+assert_contains "${resolver_out}" "${explicit_runtime}" "runtime policy resolver honors VIBEGUARD_RUNTIME before installed binaries"
 
 header "runtime policy — disabled hooks"
 disabled_home="${WORK_DIR}/home-disabled"
@@ -191,6 +224,7 @@ set +e
 bad_user_claude_out="$(
   cd "${bad_user_project}" && printf '%s' "${pretool_block_input}" \
     | HOME="${bad_user_home}" VIBEGUARD_LOG_DIR="${bad_user_home}/.vibeguard" \
+      VIBEGUARD_POLICY_RUNTIME="${RUNTIME_BIN}" \
       VIBEGUARD_CONFIG_FILE="${bad_user_config}" \
       bash "${REPO_DIR}/hooks/run-hook.sh" pre-bash-guard.sh 2>&1
 )"
@@ -210,6 +244,7 @@ set +e
 bad_user_codex_out="$(
   cd "${bad_user_project}" && printf '%s' "${codex_pretool_input}" \
     | HOME="${bad_user_home}" VIBEGUARD_LOG_DIR="${bad_user_home}/.vibeguard" \
+      VIBEGUARD_POLICY_RUNTIME="${RUNTIME_BIN}" \
       VIBEGUARD_CONFIG_FILE="${bad_user_config}" \
       bash "${REPO_DIR}/hooks/run-hook-codex.sh" vibeguard-pre-bash-guard.sh 2>&1
 )"

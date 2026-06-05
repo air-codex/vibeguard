@@ -1,5 +1,6 @@
 use serde_json::Value;
 use std::collections::HashMap;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -135,10 +136,17 @@ struct ProjectConfig {
 
 fn load_project_config(path: &Path) -> Result<ProjectConfig, String> {
     let text = std::fs::read_to_string(path).map_err(|err| {
-        format!(
-            "VibeGuard project config cannot be read: {}: {err}",
-            path.display()
-        )
+        if err.kind() == ErrorKind::InvalidData {
+            format!(
+                "VibeGuard project config invalid UTF-8: {}: {err}",
+                path.display()
+            )
+        } else {
+            format!(
+                "VibeGuard project config cannot be read: {}: {err}",
+                path.display()
+            )
+        }
     })?;
     let value = serde_json::from_str::<Value>(&text).map_err(|err| {
         format!(
@@ -416,6 +424,7 @@ fn app_server_canonical_hook_name(hook_name: &str) -> String {
 fn profile_allows_hook(profile: &str, hook_name: &str) -> bool {
     match hook_name {
         "analysis-paralysis-guard" => matches!(profile, "core" | "full" | "strict"),
+        "count-active-constraints" => profile == "strict",
         "post-build-check" | "stop-guard" | "learn-evaluator" => {
             matches!(profile, "full" | "strict")
         }
@@ -539,6 +548,27 @@ mod tests {
 
         assert!(
             matches!(decision, HookPolicyDecision::Skip(reason) if reason.contains("profile=core excludes post-build-check"))
+        );
+        if let Err(err) = fs::remove_dir_all(&repo) {
+            panic!("temp policy dir should be removed: {err}");
+        }
+    }
+
+    #[test]
+    fn core_profile_excludes_strict_only_count_active_constraints() {
+        let repo = temp_policy_dir("core_count_active_constraints");
+        if let Err(err) = fs::write(repo.join(".vibeguard.json"), r#"{"profile":"core"}"#) {
+            panic!("project config should be written: {err}");
+        }
+
+        let decision = evaluate_hook_policy(
+            "count_active_constraints.sh",
+            repo.to_str(),
+            &HashMap::new(),
+        );
+
+        assert!(
+            matches!(decision, HookPolicyDecision::Skip(reason) if reason.contains("profile=core excludes count-active-constraints"))
         );
         if let Err(err) = fs::remove_dir_all(&repo) {
             panic!("temp policy dir should be removed: {err}");
