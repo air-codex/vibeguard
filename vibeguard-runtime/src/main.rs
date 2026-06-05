@@ -18,6 +18,8 @@ mod json_field;
 mod log_append;
 mod log_query;
 mod pkg_rewrite;
+mod runtime_config;
+mod runtime_policy;
 mod session_metrics;
 mod time_utils;
 
@@ -147,6 +149,11 @@ static COMMANDS: &[Command] = &[
         name: "codex-normalize-apply-patch",
         usage: "<hook-name>  — normalize Codex apply_patch payloads for file hooks",
         handler: codex_hooks::normalize_apply_patch,
+    },
+    Command {
+        name: "runtime-policy-check",
+        usage: "<hook-name>  — evaluate runtime hook policy and config",
+        handler: runtime_policy::runtime_policy_check,
     },
     Command {
         name: "pre-write-check",
