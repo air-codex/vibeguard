@@ -40,9 +40,11 @@ def format_record(record: dict[str, Any]) -> str:
     if kind == "behavior":
         return (
             f"{timestamp} behavior deterministic commit={commit} dataset={dataset} "
+            f"verdict={record.get('verdict', 'unknown')} "
             f"pass={percent(record.get('pass_rate'))} "
             f"coverage={percent(record.get('coverage_rate'))} "
             f"slice_failures={count_slice_failures(record)} "
+            f"failures={record.get('failure_count', 'unknown')} "
             f"artifact={artifact_path}"
         )
 

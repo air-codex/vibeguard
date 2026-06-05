@@ -68,7 +68,9 @@ assert_contains "$(cat "${TMP_DIR}/runs/index.jsonl")" '"kind": "behavior"' "beh
 
 summary_out="$(cd "${REPO_DIR}" && python3 eval/summarize_runs.py --runs-dir "${TMP_DIR}/runs" --last 1)"
 assert_contains "${summary_out}" "deterministic" "summary reader labels behavior scores deterministic"
+assert_contains "${summary_out}" "verdict=pass" "summary reader displays behavior verdict"
 assert_contains "${summary_out}" "pass=100.0%" "summary reader displays behavior pass rate"
+assert_contains "${summary_out}" "failures=0" "summary reader displays behavior failure count"
 
 header "missing coverage is insufficient evidence"
 missing_requirements="${TMP_DIR}/requirements.json"

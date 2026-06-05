@@ -96,11 +96,13 @@ assert "detection_rate" in schema["properties"]
 
 mkdir -p "${TMP_DIR}/runs"
 cat > "${TMP_DIR}/runs/index.jsonl" <<'JSONL'
-{"schema_version":1,"kind":"behavior","score_type":"deterministic","timestamp":"2026-01-01T00:00:00Z","run_id":"behavior-run","artifact_path":"/tmp/behavior/results.json","commit":"abc123","dataset_source":"/repo/eval/behavior/datasets/v1.jsonl","dataset_digest":"behaviordigest","sample_count":2,"scorer_version":"behavior-e2e-v1","pass_rate":100.0,"coverage_rate":100.0,"slice_failures":[]}
+{"schema_version":1,"kind":"behavior","score_type":"deterministic","timestamp":"2026-01-01T00:00:00Z","run_id":"behavior-run","artifact_path":"/tmp/behavior/results.json","commit":"abc123","dataset_source":"/repo/eval/behavior/datasets/v1.jsonl","dataset_digest":"behaviordigest","sample_count":2,"scorer_version":"behavior-e2e-v1","verdict":"fail","failure_count":1,"pass_rate":100.0,"coverage_rate":100.0,"slice_failures":[]}
 {"schema_version":1,"kind":"model","score_type":"model_backed","timestamp":"2026-01-01T00:01:00Z","run_id":"model-run","artifact_path":"/tmp/model/results.json","commit":"abc123","dataset_source":"/repo/eval/datasets/v1.jsonl","dataset_digest":"modeldigest","sample_set_digest":"sampledigest","sample_count":40,"scorer_version":"structured-json-v1","model":"test-model","rule_digest":"ruledigest","skipped_count":0,"detection_rate":95.0,"false_positive_rate":2.5,"ece":8.0,"true_positive_total":38,"true_positive_detected":36,"false_positive_total":2,"false_positive_count":0}
 JSONL
 summary_out="$(cd "${REPO_DIR}" && python3 eval/summarize_runs.py --runs-dir "${TMP_DIR}/runs" --last 2)"
 assert_contains "${summary_out}" "behavior deterministic" "summary reader keeps deterministic behavior scores separate"
+assert_contains "${summary_out}" "verdict=fail" "summary reader shows behavior verdict"
+assert_contains "${summary_out}" "failures=1" "summary reader shows behavior failure count"
 assert_contains "${summary_out}" "model model-backed" "summary reader keeps model-backed scores separate"
 assert_contains "${summary_out}" "rules=ruledigest" "summary reader shows rule digest for model evals"
 
