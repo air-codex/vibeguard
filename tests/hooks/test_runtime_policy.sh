@@ -262,4 +262,7 @@ assert_contains "${bad_user_codex_out}" '"permissionDecision": "deny"' "Codex wr
 assert_contains "${bad_user_codex_out}" "VibeGuard runtime config invalid JSON" "Codex wrapper explains malformed runtime config"
 assert_contains "$(cat "${bad_user_home}/.vibeguard/policy.jsonl")" "config_parse_error" "runtime policy emits config_parse_error telemetry"
 
+header "runtime policy — no Python policy helpers"
+assert_not_contains "$(sed -n '1,240p' "${REPO_DIR}/hooks/_lib/policy.sh")" "python3" "policy helper no longer shells out to python3"
+
 hook_test_finish
