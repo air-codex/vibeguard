@@ -88,6 +88,36 @@ class BehaviorEvalTest(unittest.TestCase):
         self.assertEqual(report["score"], 50.0)
         self.assertEqual(report["coverage"]["missing"], [{"platform": "codex", "hook": "pre-bash-guard"}])
 
+    def test_behavior_summary_contains_required_observability_fields(self) -> None:
+        report = {
+            "metadata": {
+                "commit": "abc123",
+                "dataset_source": "/repo/eval/behavior/datasets/v1.jsonl",
+                "sample_digest": "digest123",
+                "sample_count": 2,
+                "scorer_version": "behavior-e2e-v1",
+            },
+            "verdict": "fail",
+            "pass_rate": 50.0,
+            "total": 2,
+            "coverage": {"coverage_rate": 75.0},
+            "slice_failures": [{"dimension": "rule", "value": "L1"}],
+            "failures": ["one failure"],
+        }
+
+        summary = run_behavior_eval.build_behavior_summary(
+            report,
+            Path("/tmp/eval/runs/20260101T000000Z-abc123/results.json"),
+        )
+
+        self.assertEqual(summary["kind"], "behavior")
+        self.assertEqual(summary["score_type"], "deterministic")
+        self.assertEqual(summary["commit"], "abc123")
+        self.assertEqual(summary["dataset_digest"], "digest123")
+        self.assertEqual(summary["pass_rate"], 50.0)
+        self.assertEqual(summary["coverage_rate"], 75.0)
+        self.assertEqual(summary["slice_failures"], [{"dimension": "rule", "value": "L1"}])
+
 
 if __name__ == "__main__":
     unittest.main()
