@@ -60,9 +60,7 @@ pub(super) fn aggregate_events(events: &[Value], slow_ms: u64) -> ObserveAggrega
         if let Some(reason_code) = observe_reason_code(&reason) {
             observe_increment(&mut aggregate.reason_codes, reason_code);
         }
-        if let Some(duration_ms) = observe_numeric_field(event, field::DURATION_MS)
-            .or_else(|| observe_numeric_field(event, field::ELAPSED_MS))
-        {
+        if let Some(duration_ms) = observe_effective_duration_ms(event) {
             aggregate.durations_ms.push(duration_ms);
         }
     }
@@ -101,6 +99,11 @@ pub(super) fn observe_numeric_field(value: &Value, key: &str) -> Option<u64> {
     value
         .get(key)
         .and_then(|raw| raw.as_u64().or_else(|| raw.as_str()?.parse::<u64>().ok()))
+}
+
+fn observe_effective_duration_ms(event: &Value) -> Option<u64> {
+    observe_numeric_field(event, field::DURATION_MS)
+        .or_else(|| observe_numeric_field(event, field::ELAPSED_MS))
 }
 
 pub(super) fn observe_is_attention_state(event: &Value) -> bool {
@@ -153,8 +156,7 @@ fn observe_normalized_status(event: &Value, slow_ms: u64) -> String {
         return status::SKIPPED.to_string();
     }
     if decision_value == decision::PASS
-        && observe_numeric_field(event, field::DURATION_MS)
-            .is_some_and(|duration| duration >= slow_ms)
+        && observe_effective_duration_ms(event).is_some_and(|duration| duration >= slow_ms)
     {
         return status::SLOW.to_string();
     }
@@ -223,8 +225,7 @@ fn observe_diagnostic_kind(event: &Value, slow_ms: u64) -> &'static str {
         return "adapter_error";
     }
     if status_value == status::SLOW
-        || observe_numeric_field(event, field::DURATION_MS)
-            .is_some_and(|duration| duration >= slow_ms)
+        || observe_effective_duration_ms(event).is_some_and(|duration| duration >= slow_ms)
     {
         return "slow";
     }
@@ -307,6 +308,27 @@ mod tests {
 
         let rendered = observe_event_json(&event, 2_000);
 
+        assert_eq!(rendered[field::STATUS], status::SLOW);
+        assert_eq!(rendered["diagnostic"], "slow");
+        assert_eq!(rendered[field::MODEL_CONTEXT], false);
+    }
+
+    #[test]
+    fn elapsed_only_slow_pass_counts_as_diagnostic() {
+        let event = json!({
+            "ts":"2026-06-01T00:00:06Z",
+            "session":"s1",
+            "hook":"codex-wrapper",
+            "decision":"pass",
+            "elapsed_ms":2500
+        });
+        let events = vec![event.clone()];
+
+        let aggregate = aggregate_events(&events, 2_000);
+        let rendered = observe_event_json(&event, 2_000);
+
+        assert_eq!(aggregate.durations_ms, vec![2500]);
+        assert_eq!(aggregate.attention_count, 1);
         assert_eq!(rendered[field::STATUS], status::SLOW);
         assert_eq!(rendered["diagnostic"], "slow");
         assert_eq!(rendered[field::MODEL_CONTEXT], false);
