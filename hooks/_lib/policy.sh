@@ -24,15 +24,33 @@ vg_policy_runtime_path() {
     "${wrapper_dir}/vibeguard-runtime" \
     "${wrapper_dir}/../vibeguard-runtime/target/debug/vibeguard-runtime"; do
     if [[ -n "${candidate}" && -f "${candidate}" && -x "${candidate}" ]]; then
-      if VIBEGUARD_PROJECT_CONFIG="${TMPDIR:-/tmp}/vibeguard-missing-policy-probe.json" \
-        VIBEGUARD_USER_CONFIG_FILE="" \
-        "${candidate}" runtime-policy-check __vibeguard_policy_probe__ >/dev/null 2>&1; then
+      if vg_policy_runtime_supports "${candidate}"; then
         printf '%s\n' "${candidate}"
         return 0
       fi
     fi
   done
   return 1
+}
+
+vg_policy_runtime_supports() {
+  local candidate="$1" probe_diag downgrade_probe codex_probe
+  probe_diag="${TMPDIR:-/tmp}/vibeguard-policy-probe.$$.jsonl"
+  VIBEGUARD_PROJECT_CONFIG="${TMPDIR:-/tmp}/vibeguard-missing-policy-probe.json" \
+    VIBEGUARD_USER_CONFIG_FILE="" \
+    "${candidate}" runtime-policy-check __vibeguard_policy_probe__ >/dev/null 2>&1 || return 1
+  downgrade_probe="$(printf '{"decision":"block","reason":"probe"}' \
+    | "${candidate}" runtime-policy-downgrade-output 2>/dev/null)" || return 1
+  [[ "${downgrade_probe}" == *'"decision"'* && "${downgrade_probe}" == *'"warn"'* ]] || return 1
+  codex_probe="$(printf 'probe' \
+    | "${candidate}" runtime-policy-codex-error PreToolUse 2>/dev/null)" || return 1
+  [[ "${codex_probe}" == *'"permissionDecision"'* && "${codex_probe}" == *'"deny"'* ]] || return 1
+  rm -f "${probe_diag}" 2>/dev/null || true
+  printf 'probe' \
+    | "${candidate}" runtime-policy-diag "${probe_diag}" __vibeguard_policy_probe__ PreToolUse policy_error probe >/dev/null 2>&1 || return 1
+  [[ -s "${probe_diag}" ]] || return 1
+  rm -f "${probe_diag}" 2>/dev/null || true
+  return 0
 }
 
 vg_policy_check_hook() {

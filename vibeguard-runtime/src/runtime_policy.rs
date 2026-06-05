@@ -69,14 +69,15 @@ pub fn runtime_policy_downgrade_output(args: &[String]) -> HandlerResult {
         changed = true;
     }
 
-    if changed
-        && let Some(reason) = object.get("reason").and_then(Value::as_str)
-        && !reason.is_empty()
-    {
-        object.insert(
-            "reason".to_string(),
-            json!(format!("VIBEGUARD warn-mode advisory: {reason}")),
-        );
+    if changed {
+        if let Some(reason) = object.get("reason").and_then(Value::as_str) {
+            if !reason.is_empty() {
+                object.insert(
+                    "reason".to_string(),
+                    json!(format!("VIBEGUARD warn-mode advisory: {reason}")),
+                );
+            }
+        }
     }
 
     let has_system_message = object.contains_key("systemMessage");
@@ -94,12 +95,10 @@ pub fn runtime_policy_downgrade_output(args: &[String]) -> HandlerResult {
                 .remove("permissionDecisionReason")
                 .and_then(|value| value.as_str().map(str::to_string));
             hook_specific.remove("permissionDecision");
-            if let Some(message) = message
-                && !message.is_empty()
-                && !has_system_message
-                && advisory_message.is_none()
-            {
-                advisory_message = Some(message);
+            if let Some(message) = message {
+                if !message.is_empty() && !has_system_message && advisory_message.is_none() {
+                    advisory_message = Some(message);
+                }
             }
         }
 
@@ -117,12 +116,10 @@ pub fn runtime_policy_downgrade_output(args: &[String]) -> HandlerResult {
                 .and_then(Value::as_str)
                 .map(str::to_string);
             hook_specific.remove("decision");
-            if let Some(message) = message
-                && !message.is_empty()
-                && !has_system_message
-                && advisory_message.is_none()
-            {
-                advisory_message = Some(message);
+            if let Some(message) = message {
+                if !message.is_empty() && !has_system_message && advisory_message.is_none() {
+                    advisory_message = Some(message);
+                }
             }
         }
     }
@@ -154,10 +151,10 @@ pub fn runtime_policy_diag(args: &[String]) -> HandlerResult {
     }
 
     let diag_file = Path::new(&args[0]);
-    if let Some(parent) = diag_file.parent()
-        && !parent.as_os_str().is_empty()
-    {
-        fs::create_dir_all(parent)?;
+    if let Some(parent) = diag_file.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent)?;
+        }
     }
 
     let reason = read_stdin()?;
