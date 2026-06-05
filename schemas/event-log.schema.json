@@ -12,7 +12,7 @@
     "session": { "type": "string" },
     "event": { "type": "string" },
     "hook": { "type": "string", "minLength": 1 },
-    "tool": { "type": "string", "minLength": 1 },
+    "tool": { "type": "string" },
     "matcher": { "type": "string" },
     "decision": {
       "enum": ["pass", "warn", "block", "gate", "escalate", "correction", "complete"]
