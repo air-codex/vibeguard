@@ -99,6 +99,11 @@ static COMMANDS: &[Command] = &[
         handler: session_metrics::run,
     },
     Command {
+        name: "observe",
+        usage: "export prometheus [--scope project|global] [--project PATH_OR_HASH] [--since 7d|24h|3600s|all] [--file OUTPUT]  — export low-cardinality observability metrics",
+        handler: observe::run,
+    },
+    Command {
         name: "hook-status",
         usage: "[--mode minimal|focused|full] [--json] [--scope project|global] [--project PATH_OR_HASH] [--log-file PATH] [--diag-file PATH]  — summarize hook pass/skip/warn/timeout status without adding model context",
         handler: hook_status::run,
