@@ -40,6 +40,7 @@ impl TimeWindow {
 pub(super) struct ObserveOptions {
     pub(super) command: ObserveCommand,
     pub(super) json: bool,
+    pub(super) legacy: bool,
     pub(super) log_file: Option<PathBuf>,
     pub(super) scope: LogScope,
     pub(super) scope_explicit: bool,
@@ -61,6 +62,7 @@ impl ObserveOptions {
         Self {
             command,
             json: false,
+            legacy: false,
             log_file: None,
             scope: LogScope::Project,
             scope_explicit: false,
@@ -113,6 +115,7 @@ fn parse_common_args(args: &[String], options: &mut ObserveOptions) -> Result {
     while index < args.len() {
         match args[index].as_str() {
             "--json" => options.json = true,
+            "--legacy" => options.legacy = true,
             "--log-file" => {
                 index += 1;
                 options.log_file = Some(PathBuf::from(value_arg(args, index, "--log-file")?));
@@ -194,7 +197,7 @@ fn parse_hours_window(value: &str) -> Result<TimeWindow> {
 }
 
 fn usage() -> &'static str {
-    "Usage: vibeguard-runtime observe <summary|health|session|export prometheus> [--json] [--scope project|global] [--project PATH_OR_HASH] [--log-file PATH] [--days N|all] [--hours N|all] [--limit N] [--slow-ms MS] [--top N]"
+    "Usage: vibeguard-runtime observe <summary|health|session|export prometheus> [--json] [--legacy] [--scope project|global] [--project PATH_OR_HASH] [--log-file PATH] [--days N|all] [--hours N|all] [--limit N] [--slow-ms MS] [--top N]"
 }
 
 #[cfg(test)]

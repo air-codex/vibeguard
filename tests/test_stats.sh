@@ -59,6 +59,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
+RUNTIME="${REPO_DIR}/vibeguard-runtime/target/debug/vibeguard-runtime"
+
+header "build"
+assert_cmd "vibeguard-runtime builds for observe wrappers" \
+  cargo build --manifest-path "${REPO_DIR}/vibeguard-runtime/Cargo.toml" --quiet
+
 header "Project and explicit log scope"
 SCOPE_ROOT="${TMP_DIR}/scope"
 SCOPE_PROJECT_DIR="${SCOPE_ROOT}/projects/abcdef12"
@@ -165,10 +171,7 @@ assert_contains "${stats_out}" "pre-bash-guard: 2 times" "Hook aggregation remai
 assert_contains "${stats_out}" "post-edit-guard: 1 times" "Secondary hook aggregation remains correct"
 
 header "Prometheus exporter uses low-cardinality labels"
-RUNTIME="${REPO_DIR}/vibeguard-runtime/target/debug/vibeguard-runtime"
 EXPORTER="${REPO_DIR}/scripts/metrics/metrics-exporter.sh"
-assert_cmd "vibeguard-runtime builds for exporter wrapper" \
-  cargo build --manifest-path "${REPO_DIR}/vibeguard-runtime/Cargo.toml"
 
 mkdir -p "${TMP_DIR}/prom-log"
 python3 - "${TMP_DIR}/prom-log/events.jsonl" <<'PY'

@@ -15,6 +15,7 @@ use super::model::ObserveOptions;
 pub(super) struct LogEvents {
     pub(super) events: Vec<Value>,
     pub(super) log_path: String,
+    pub(super) source_exists: bool,
 }
 
 pub(super) fn read_log_events(options: &ObserveOptions) -> Result<LogEvents> {
@@ -31,17 +32,19 @@ pub(super) fn read_log_events(options: &ObserveOptions) -> Result<LogEvents> {
     };
     let log_path = observe_display_path(&resolved);
     if !resolved.exists() {
-        if options.log_file.is_some() {
+        if options.log_file.is_some() && !options.legacy {
             return Err(format!("Log file does not exist: {}", resolved.display()).into());
         }
         return Ok(LogEvents {
             events: Vec::new(),
             log_path,
+            source_exists: false,
         });
     }
     Ok(LogEvents {
         events: read_jsonl_file_limited(&resolved, options.limit)?,
         log_path,
+        source_exists: true,
     })
 }
 

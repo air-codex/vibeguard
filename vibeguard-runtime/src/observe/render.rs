@@ -1,15 +1,17 @@
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 
-use crate::event_schema::UNKNOWN;
+use crate::event_schema::{UNKNOWN, decision, field};
 use crate::log_scope::LogScope;
 
 use super::OBSERVE_SCHEMA_VERSION;
 use super::Result;
 use super::aggregate::{
-    ObserveAggregate, observe_event_json, observe_is_attention_state, observe_is_diagnostic_event,
+    ObserveAggregate, observe_client_name, observe_event_json, observe_is_attention_state,
+    observe_is_diagnostic_event, observe_non_empty_or, observe_normalized_decision,
+    observe_string_field,
 };
-use super::model::{ObserveCommand, ObserveOptions};
+use super::model::{ObserveCommand, ObserveOptions, TimeWindow};
 use super::read::LogEvents;
 
 pub(super) fn render_summary(
@@ -22,6 +24,9 @@ pub(super) fn render_summary(
             "{}\n",
             serde_json::to_string_pretty(&observe_summary_json(options, log_events, aggregate))?
         ));
+    }
+    if options.legacy {
+        return render_legacy_summary(options, log_events, aggregate);
     }
     if aggregate.event_count == 0 {
         return Ok(format!(
@@ -67,6 +72,9 @@ pub(super) fn render_health(
         output["diagnostics"] = Value::Array(diagnostics);
         return Ok(format!("{}\n", serde_json::to_string_pretty(&output)?));
     }
+    if options.legacy {
+        return render_legacy_health(options, log_events, aggregate);
+    }
     if aggregate.event_count == 0 {
         return Ok(format!(
             "No observe health events found in {} for {}.\n",
@@ -83,6 +91,292 @@ pub(super) fn render_health(
         attention_states.len(),
         diagnostics.len()
     ))
+}
+
+fn render_legacy_summary(
+    options: &ObserveOptions,
+    log_events: &LogEvents,
+    aggregate: &ObserveAggregate,
+) -> Result<String> {
+    if aggregate.event_count == 0 {
+        if !log_events.source_exists {
+            return Ok(format!(
+                "No log data. Hooks will be automatically logged to {} after being triggered\n",
+                log_events.log_path
+            ));
+        }
+        return Ok(match options.window {
+            TimeWindow::All => "No log data.\n".to_string(),
+            TimeWindow::Days(days) => format!("No log data for the last {days} days.\n"),
+            TimeWindow::Hours(hours) => format!("No log data for the last {hours} hours.\n"),
+        });
+    }
+
+    let hook_counts = legacy_count_by(&log_events.events, |event| {
+        observe_non_empty_or(observe_string_field(event, field::HOOK), UNKNOWN)
+    });
+    let cli_counts = legacy_count_by(&log_events.events, |event| {
+        observe_non_empty_or(observe_string_field(event, field::CLI), UNKNOWN)
+    });
+    let block_reasons = legacy_count_by_matching(&log_events.events, decision::BLOCK, |event| {
+        observe_non_empty_or(observe_string_field(event, field::REASON), "Unknown")
+    });
+    let warn_reasons = legacy_count_by_matching(&log_events.events, decision::WARN, |event| {
+        observe_non_empty_or(observe_string_field(event, field::REASON), "Unknown")
+    });
+
+    let mut output = String::new();
+    output.push_str(&format!(
+        "\nVibeGuard Statistics ({})\n{}\n",
+        options.window.label(),
+        "=".repeat(40)
+    ));
+    output.push_str(&format!(
+        "Time range: {} ~ {}\n",
+        observe_blank_as_unknown(&aggregate.first_ts),
+        observe_blank_as_unknown(&aggregate.last_ts)
+    ));
+    output.push_str(&format!(
+        "Total triggers: {} times\n",
+        aggregate.event_count
+    ));
+    output.push_str(&format!(
+        "  Interception (block): {} times\n",
+        legacy_decision_count(aggregate, decision::BLOCK)
+    ));
+    output.push_str(&format!(
+        "  Warning: {} times\n",
+        legacy_decision_count(aggregate, decision::WARN)
+    ));
+    output.push_str(&format!(
+        "  Pass (pass): {} times\n\n",
+        legacy_decision_count(aggregate, decision::PASS)
+    ));
+
+    output.push_str("Distributed by Hook:\n");
+    for (hook, count) in observe_sorted_counts(&hook_counts) {
+        output.push_str(&format!(" {hook}: {count} times\n"));
+    }
+
+    output.push_str("\nDistributed by CLI:\n");
+    for (cli, count) in observe_sorted_counts(&cli_counts) {
+        output.push_str(&format!(" {cli}: {count} times\n"));
+    }
+
+    if !block_reasons.is_empty() {
+        output.push_str("\nInterception reasons Top 5:\n");
+        for (reason, count) in observe_sorted_counts(&block_reasons).into_iter().take(5) {
+            output.push_str(&format!("  {count}x  {}\n", legacy_truncate(&reason, 60)));
+        }
+    }
+
+    if !warn_reasons.is_empty() {
+        output.push_str("\nWarning reasons Top 5:\n");
+        for (reason, count) in observe_sorted_counts(&warn_reasons).into_iter().take(5) {
+            output.push_str(&format!("  {count}x  {}\n", legacy_truncate(&reason, 60)));
+        }
+    }
+
+    let day_counts = legacy_count_by_day(&log_events.events);
+    if day_counts.len() > 1 {
+        output.push_str("\nDaily trigger amount:\n");
+        for (day, count) in day_counts
+            .iter()
+            .rev()
+            .take(7)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+        {
+            let bar =
+                std::iter::repeat_n('\u{2588}', (*count).min(50) as usize).collect::<String>();
+            output.push_str(&format!("  {day}  {bar} {count}\n"));
+        }
+    }
+
+    Ok(output)
+}
+
+fn render_legacy_health(
+    options: &ObserveOptions,
+    log_events: &LogEvents,
+    aggregate: &ObserveAggregate,
+) -> Result<String> {
+    if aggregate.event_count == 0 {
+        if !log_events.source_exists {
+            return Ok(format!(
+                "No log data. Hooks will be automatically logged to {} after being triggered.\n",
+                log_events.log_path
+            ));
+        }
+        return Ok(match options.window {
+            TimeWindow::Hours(hours) => format!("No log data for the last {hours} hours.\n"),
+            TimeWindow::Days(days) => format!("No log data for the last {days} days.\n"),
+            TimeWindow::All => "No log data.\n".to_string(),
+        });
+    }
+
+    let pass_count = legacy_decision_count(aggregate, decision::PASS);
+    let risk_count = aggregate.event_count as u64 - pass_count;
+    let by_cli = legacy_count_by(&log_events.events, |event| {
+        observe_non_empty_or(observe_string_field(event, field::CLI), UNKNOWN)
+    });
+    let by_client = legacy_count_by(&log_events.events, |event| {
+        observe_non_empty_or(observe_client_name(event), UNKNOWN)
+    });
+    let non_pass_events = log_events
+        .events
+        .iter()
+        .filter(|event| observe_normalized_decision(event) != decision::PASS)
+        .collect::<Vec<_>>();
+    let risk_hook_counts = legacy_count_by_refs(&non_pass_events, |event| {
+        observe_non_empty_or(observe_string_field(event, field::HOOK), UNKNOWN)
+    });
+
+    let mut output = String::new();
+    let period = options.window.label();
+    output.push_str(&format!("VibeGuard Hook Health ({period})\n"));
+    output.push_str(&format!("{}\n", "=".repeat(44)));
+    output.push_str(&format!(
+        "Time range: {} ~ {}\n",
+        observe_blank_as_unknown(&aggregate.first_ts),
+        observe_blank_as_unknown(&aggregate.last_ts)
+    ));
+    output.push_str(&format!("Total triggers: {}\n", aggregate.event_count));
+    output.push_str(&format!("Pass: {pass_count}\n"));
+    output.push_str(&format!("Risk (non-pass): {risk_count}\n"));
+    output.push_str(&format!(
+        "Risk rate: {:.1}%\n",
+        observe_percentage(risk_count as usize, aggregate.event_count)
+    ));
+    for status in [
+        decision::BLOCK,
+        decision::GATE,
+        decision::WARN,
+        decision::ESCALATE,
+        decision::CORRECTION,
+    ] {
+        output.push_str(&format!(
+            "  {status}: {}\n",
+            legacy_decision_count(aggregate, status)
+        ));
+    }
+
+    output.push_str("CLI distribution:\n");
+    for (cli, count) in observe_sorted_counts(&by_cli) {
+        output.push_str(&format!("  {cli}: {count}\n"));
+    }
+    output.push_str("Client distribution:\n");
+    for (client, count) in observe_sorted_counts(&by_client) {
+        output.push_str(&format!("  {client}: {count}\n"));
+    }
+
+    if !non_pass_events.is_empty() {
+        output.push_str("\nRisk Hook Top 5:\n");
+        for (hook, count) in observe_sorted_counts(&risk_hook_counts).into_iter().take(5) {
+            output.push_str(&format!("  {hook}: {count}\n"));
+        }
+
+        output.push_str("\nTop 10 recent risk events:\n");
+        for (index, event) in non_pass_events.iter().rev().take(10).enumerate() {
+            let cli = observe_non_empty_or(observe_string_field(event, field::CLI), UNKNOWN);
+            let client = observe_non_empty_or(observe_client_name(event), &cli);
+            output.push_str(&format!(
+                "  {}. {} | {} | {} | cli={} | client={} | session={}\n",
+                index + 1,
+                observe_non_empty_or(observe_string_field(event, field::TS), "?"),
+                observe_non_empty_or(observe_string_field(event, field::HOOK), UNKNOWN),
+                observe_non_empty_or(observe_normalized_decision(event), UNKNOWN),
+                cli,
+                client,
+                observe_non_empty_or(observe_string_field(event, field::SESSION), "?")
+            ));
+            let reason = legacy_clean_detail(&observe_string_field(event, field::REASON));
+            let detail = legacy_clean_detail(&observe_string_field(event, field::DETAIL));
+            if !reason.is_empty() {
+                output.push_str(&format!("     reason: {}\n", legacy_truncate(&reason, 100)));
+            }
+            if !detail.is_empty() {
+                output.push_str(&format!("     detail: {}\n", legacy_truncate(&detail, 100)));
+            }
+        }
+    }
+
+    output.push('\n');
+    Ok(output)
+}
+
+fn legacy_decision_count(aggregate: &ObserveAggregate, status: &str) -> u64 {
+    aggregate.decision_counts.get(status).copied().unwrap_or(0)
+}
+
+fn legacy_count_by<F>(events: &[Value], mut mapper: F) -> BTreeMap<String, u64>
+where
+    F: FnMut(&Value) -> String,
+{
+    let mut counts = BTreeMap::new();
+    for event in events {
+        observe_increment(&mut counts, mapper(event));
+    }
+    counts
+}
+
+fn legacy_count_by_refs<F>(events: &[&Value], mut mapper: F) -> BTreeMap<String, u64>
+where
+    F: FnMut(&Value) -> String,
+{
+    let mut counts = BTreeMap::new();
+    for event in events {
+        observe_increment(&mut counts, mapper(event));
+    }
+    counts
+}
+
+fn legacy_count_by_matching<F>(
+    events: &[Value],
+    decision_value: &str,
+    mut mapper: F,
+) -> BTreeMap<String, u64>
+where
+    F: FnMut(&Value) -> String,
+{
+    let mut counts = BTreeMap::new();
+    for event in events {
+        if observe_normalized_decision(event) == decision_value {
+            observe_increment(&mut counts, mapper(event));
+        }
+    }
+    counts
+}
+
+fn legacy_count_by_day(events: &[Value]) -> BTreeMap<String, u64> {
+    let mut counts = BTreeMap::new();
+    for event in events {
+        let ts = observe_string_field(event, field::TS);
+        if ts.len() >= 10 {
+            observe_increment(&mut counts, ts[..10].to_string());
+        }
+    }
+    counts
+}
+
+fn observe_increment(map: &mut BTreeMap<String, u64>, key: String) {
+    *map.entry(key).or_default() += 1;
+}
+
+fn legacy_clean_detail(value: &str) -> String {
+    value.replace('\n', " ").trim().to_string()
+}
+
+fn legacy_truncate(value: &str, max_chars: usize) -> String {
+    let mut chars = value.chars();
+    let prefix = chars.by_ref().take(max_chars).collect::<String>();
+    if chars.next().is_some() && max_chars >= 3 {
+        let keep = max_chars - 3;
+        format!("{}...", prefix.chars().take(keep).collect::<String>())
+    } else {
+        prefix
+    }
 }
 
 pub(super) fn render_session(

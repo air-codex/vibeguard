@@ -52,11 +52,28 @@ assert_exit_nonzero() {
   fi
 }
 
+assert_cmd() {
+  local desc="$1"
+  shift
+  TOTAL=$((TOTAL + 1))
+  if "$@" >/dev/null 2>&1; then
+    green "$desc"
+    PASS=$((PASS + 1))
+  else
+    red "$desc"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
 TMP_DIR="$(mktemp -d)"
 cleanup() {
   rm -rf "${TMP_DIR}"
 }
 trap cleanup EXIT
+
+header "build"
+assert_cmd "vibeguard-runtime builds for health wrapper" \
+  cargo build --manifest-path "${REPO_DIR}/vibeguard-runtime/Cargo.toml" --quiet
 
 header "No log file"
 no_log_out="$(VIBEGUARD_LOG_DIR="${TMP_DIR}/missing" bash "${SCRIPT}" 2>&1 || true)"
