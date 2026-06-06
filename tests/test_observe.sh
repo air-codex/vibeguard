@@ -62,6 +62,7 @@ not json
 {"ts":"2026-06-01T00:00:05Z","session":"s1","hook":"post-write-guard","tool":"Write","decision":"pass","reason":"","detail":"src/lib.rs","duration_ms":2500,"client":"codex"}
 {"ts":"2026-06-01T00:00:06Z","session":"s1","hook":"post-build-check","tool":"PostToolUse","status":"timeout","reason":"post-build-check timeout after 30s","detail":"cargo test","duration_ms":30000,"client":"codex"}
 {"ts":"2026-06-01T00:00:07Z","session":"s1","hook":"codex-wrapper","event":"PostToolUse","status":"hook_error","reason":"missing-runner","detail":"wrapper unavailable","duration_ms":1,"client":"codex"}
+{"ts":"2026-06-01T00:00:08Z","session":"s1","hook":"post-tool-use","tool":"PostToolUse","decision":"pass","reason":"","detail":"elapsed-only slow","elapsed_ms":2600,"client":"codex"}
 JSONL
 
 header "summary json"
@@ -90,16 +91,16 @@ import json
 import sys
 
 data = json.load(open(sys.argv[1], encoding="utf-8"))
-if data["event_count"] != 7:
+if data["event_count"] != 8:
     raise SystemExit(f"malformed JSONL should be skipped, got {data['event_count']}")
-if data["decision_counts"].get("pass") != 3:
+if data["decision_counts"].get("pass") != 4:
     raise SystemExit(f"unexpected pass count: {data['decision_counts']}")
-if data["client_distribution"].get("codex") != 6:
+if data["client_distribution"].get("codex") != 7:
     raise SystemExit(f"unexpected client distribution: {data['client_distribution']}")
 rules = {item["value"] for item in data["top_rule_ids"]}
 if {"U-16", "SEC-13"} - rules:
     raise SystemExit(f"missing rule ids: {rules}")
-if data["duration_stats"]["slow_count"] != 2:
+if data["duration_stats"]["slow_count"] != 3:
     raise SystemExit(f"unexpected slow count: {data['duration_stats']}")
 PY
 
@@ -116,6 +117,12 @@ if attention_statuses != {"warn", "block"}:
 diagnostics = {entry["diagnostic"] for entry in data["diagnostics"]}
 if {"slow", "timeout", "hook_error"} - diagnostics:
     raise SystemExit(f"missing diagnostics: {diagnostics}")
+elapsed_slow = [
+    entry for entry in data["diagnostics"]
+    if entry["detail"] == "elapsed-only slow" and entry["diagnostic"] == "slow"
+]
+if len(elapsed_slow) != 1:
+    raise SystemExit(f"elapsed-only slow event missing from diagnostics: {data['diagnostics']}")
 for entry in data["diagnostics"]:
     if entry["status"] in {"pass", "skipped", "slow", "timeout", "hook_error"} and entry["model_context"]:
         raise SystemExit(f"diagnostic must not inject model context: {entry}")
@@ -128,8 +135,8 @@ import json
 import sys
 
 data = json.load(open(sys.argv[1], encoding="utf-8"))
-if data["event_count"] != 6:
-    raise SystemExit(f"expected six s1 events, got {data['event_count']}")
+if data["event_count"] != 7:
+    raise SystemExit(f"expected seven s1 events, got {data['event_count']}")
 sessions = {entry["session"] for entry in data["recent_events"]}
 if sessions != {"s1"}:
     raise SystemExit(f"session output leaked other sessions: {sessions}")
