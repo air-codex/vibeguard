@@ -311,6 +311,35 @@ prepare_runtime_binary() {
   prepare_runtime_from_source "${fallback_reason}"
 }
 
+validate_project_config_for_install() {
+  local runtime_path="${1:-}" project_config_file project_config_out
+  project_config_file="$(vg_project_config_file)"
+  if [[ -z "${project_config_file}" || ! -f "${project_config_file}" ]]; then
+    return 0
+  fi
+
+  if [[ -n "${runtime_path}" ]]; then
+    project_config_out="$(VIBEGUARD_PROJECT_CONFIG_RUNTIME="${runtime_path}" vg_validate_project_config "${project_config_file}" 2>&1)" || {
+      red "ERROR: invalid project config: ${project_config_file}"
+      while IFS= read -r line; do
+        red "  ${line}"
+      done <<< "${project_config_out}"
+      return 1
+    }
+  else
+    project_config_out="$(vg_validate_project_config "${project_config_file}" 2>&1)" || {
+      red "ERROR: invalid project config: ${project_config_file}"
+      while IFS= read -r line; do
+        red "  ${line}"
+      done <<< "${project_config_out}"
+      return 1
+    }
+  fi
+
+  green "Project config valid: ${project_config_file}"
+  echo
+}
+
 echo "=============================="
 echo "VibeGuard Setup"
 echo "Repository: ${REPO_DIR}"
@@ -335,20 +364,6 @@ if [[ "${WITH_SCHEDULER}" == "1" ]]; then
 fi
 echo "=============================="
 echo
-
-project_config_file="$(vg_project_config_file)"
-if [[ -n "${project_config_file}" && -f "${project_config_file}" ]]; then
-  if project_config_out="$(vg_validate_project_config "${project_config_file}" 2>&1)"; then
-    green "Project config valid: ${project_config_file}"
-  else
-    red "ERROR: invalid project config: ${project_config_file}"
-    while IFS= read -r line; do
-      red "  ${line}"
-    done <<< "${project_config_out}"
-    exit 1
-  fi
-  echo
-fi
 
 if [[ "${VIBEGUARD_SETUP_DRY_RUN}" == "1" ]]; then
   configure_claude_home_runtime
@@ -409,6 +424,7 @@ printf '%s' "$(git -C "${REPO_DIR}" rev-parse --short HEAD 2>/dev/null || echo '
 # installation is fail-closed: a downloaded binary must verify, and source
 # fallback still requires a successful Rust build.
 prepare_runtime_binary
+validate_project_config_for_install "${_INSTALL_TMP}/bin/vibeguard-runtime"
 
 # Swap: move old installed aside, rename new into place, restore on failure
 if [[ -d "${INSTALLED_DIR}" ]]; then
