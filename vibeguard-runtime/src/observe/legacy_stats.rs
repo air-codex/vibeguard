@@ -386,3 +386,88 @@ fn legacy_ts_prefix(event: &Value) -> String {
         ts.chars().take(16).collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::super::aggregate::aggregate_events;
+    use super::super::model::parse_observe_args;
+    use super::*;
+
+    fn args(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_string()).collect()
+    }
+
+    #[test]
+    fn legacy_summary_includes_restored_analysis_sections() {
+        let events = vec![
+            json!({
+                "ts": "2026-06-05T10:00:00Z",
+                "session": "session-a",
+                "hook": "pre-bash-guard",
+                "tool": "Bash",
+                "decision": "warn",
+                "reason": "non-standard markdown",
+                "detail": "notes.md",
+                "cli": "codex"
+            }),
+            json!({
+                "ts": "2026-06-05T11:00:00Z",
+                "session": "session-a",
+                "hook": "pre-bash-guard",
+                "tool": "Bash",
+                "decision": "pass",
+                "reason": "",
+                "detail": "src/main.rs",
+                "cli": "codex"
+            }),
+            json!({
+                "ts": "2026-06-05T20:00:00Z",
+                "session": "session-b",
+                "hook": "post-edit-guard",
+                "tool": "Edit",
+                "decision": "block",
+                "reason": "U-16 block",
+                "detail": "src/lib.rs",
+                "cli": "claude"
+            }),
+            json!({
+                "ts": "2026-06-05T21:00:00Z",
+                "session": "session-b",
+                "hook": "post-edit-guard",
+                "tool": "Edit",
+                "decision": "warn",
+                "reason": "needs review",
+                "detail": "README.md",
+                "cli": "claude"
+            }),
+        ];
+        let options = match parse_observe_args(&args(&["summary", "--legacy", "--days", "all"])) {
+            Ok(options) => options,
+            Err(error) => panic!("legacy summary options should parse: {error}"),
+        };
+        let log_events = LogEvents {
+            events,
+            log_path: "events.jsonl".to_string(),
+            source_exists: true,
+        };
+        let aggregate = aggregate_events(&log_events.events, 2_000);
+
+        let output = match render_legacy_summary(&options, &log_events, &aggregate) {
+            Ok(output) => output,
+            Err(error) => panic!("legacy summary should render: {error}"),
+        };
+
+        assert!(output.contains("== Warn compliance rate analysis =="));
+        assert!(output.contains("pre-bash-guard: warn=1 pass=1 compliance rate=50% [LOW]"));
+        assert!(output.contains("Distributed by file type:"));
+        assert!(output.contains(".rs: 2 times"));
+        assert!(output.contains("Distributed by time period:"));
+        assert!(output.contains("working time (09-18): 2 times (50%)"));
+        assert!(output.contains("== Performance analysis =="));
+        assert!(output.contains("Average triggers per session: 2.0 times"));
+        assert!(output.contains("Deterministic node estimated savings: ~2K tokens"));
+        assert!(output.contains("session-b: 2 issues / 2 triggers"));
+    }
+}
