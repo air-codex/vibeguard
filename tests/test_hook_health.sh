@@ -40,6 +40,21 @@ assert_not_contains() {
   fi
 }
 
+assert_line_before() {
+  local output="$1" first="$2" second="$3" desc="$4"
+  local first_line second_line
+  TOTAL=$((TOTAL + 1))
+  first_line="$(grep -nF -- "$first" <<< "$output" | head -n 1 | cut -d: -f1 || true)"
+  second_line="$(grep -nF -- "$second" <<< "$output" | head -n 1 | cut -d: -f1 || true)"
+  if [[ -n "${first_line}" && -n "${second_line}" && "${first_line}" -lt "${second_line}" ]]; then
+    green "$desc"
+    PASS=$((PASS + 1))
+  else
+    red "$desc"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
 assert_exit_nonzero() {
   local code="$1" desc="$2"
   TOTAL=$((TOTAL + 1))
@@ -141,6 +156,8 @@ from datetime import datetime, timedelta, timezone
 
 path = sys.argv[1]
 now = datetime.now(timezone.utc)
+recent_utc = now - timedelta(minutes=40)
+older_offset = (recent_utc - timedelta(minutes=15)).astimezone(timezone(timedelta(hours=1)))
 
 events = [
     {
@@ -184,6 +201,24 @@ events = [
         "detail": "src/lib.rs",
     },
     {
+        "ts": recent_utc.isoformat().replace("+00:00", "Z"),
+        "session": "offset-newer",
+        "hook": "offset-newer-hook",
+        "tool": "Edit",
+        "decision": "warn",
+        "reason": "newer instant",
+        "detail": "newer.rs",
+    },
+    {
+        "ts": older_offset.isoformat(),
+        "session": "offset-older",
+        "hook": "offset-older-hook",
+        "tool": "Edit",
+        "decision": "block",
+        "reason": "older offset instant",
+        "detail": "older.rs",
+    },
+    {
         "ts": (now - timedelta(hours=30)).isoformat().replace("+00:00", "Z"),
         "session": "old",
         "hook": "pre-commit-guard",
@@ -201,16 +236,17 @@ PY
 
 health_out="$(VIBEGUARD_LOG_DIR="${TMP_DIR}/log" bash "${SCRIPT}" --scope global 24 2>&1)"
 assert_contains "${health_out}" "VibeGuard Hook Health (last 24 hours)" "Title is correct"
-assert_contains "${health_out}" "Total triggers: 4" "Filter out events within 24 hours"
+assert_contains "${health_out}" "Total triggers: 6" "Filter out events within 24 hours"
 assert_contains "${health_out}" "Pass: 1" "Pass statistics are correct"
-assert_contains "${health_out}" "Risk (non-pass): 3" "Risk statistics are correct"
-assert_contains "${health_out}" "Risk rate: 75.0%" "Risk rate calculation is correct"
+assert_contains "${health_out}" "Risk (non-pass): 5" "Risk statistics are correct"
+assert_contains "${health_out}" "Risk rate: 83.3%" "Risk rate calculation is correct"
 assert_contains "${health_out}" "Client distribution:" "Output client distribution"
 assert_contains "${health_out}" "claude: 1" "Client distribution includes Claude"
 assert_contains "${health_out}" "codex: 1" "Client distribution includes Codex"
 assert_contains "${health_out}" "Risk Hook Top 5:" "Output risk hook ranking"
 assert_contains "${health_out}" "Top 10 recent risk events:" "Output the latest risk events"
 assert_contains "${health_out}" "stop-guard | gate | cli=codex | client=codex" "Risk event contains caller split"
+assert_line_before "${health_out}" "session=offset-newer" "session=offset-older" "Recent risk events are ordered by parsed timestamp"
 
 header "Malformed UTF-8 and broken JSON lines are tolerated"
 python3 - "${TMP_DIR}/log/events-malformed.jsonl" <<'PY'

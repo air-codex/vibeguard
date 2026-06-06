@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 
 use crate::event_schema::{UNKNOWN, decision, field};
 use crate::log_scope::LogScope;
+use crate::time_utils::parse_iso_ts;
 
 use super::OBSERVE_SCHEMA_VERSION;
 use super::Result;
@@ -121,11 +122,13 @@ fn render_legacy_health(
     let by_client = legacy_count_by(&log_events.events, |event| {
         observe_non_empty_or(observe_client_name(event), UNKNOWN)
     });
-    let non_pass_events = log_events
+    let mut non_pass_events = log_events
         .events
         .iter()
         .filter(|event| observe_normalized_decision(event) != decision::PASS)
         .collect::<Vec<_>>();
+    non_pass_events
+        .sort_by_key(|event| parse_iso_ts(&observe_string_field(event, field::TS)).unwrap_or(0));
     let risk_hook_counts = legacy_count_by_refs(&non_pass_events, |event| {
         observe_non_empty_or(observe_string_field(event, field::HOOK), UNKNOWN)
     });
