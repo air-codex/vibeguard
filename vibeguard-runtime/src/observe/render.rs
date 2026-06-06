@@ -122,6 +122,8 @@ fn render_legacy_health(
     let by_client = legacy_count_by(&log_events.events, |event| {
         observe_non_empty_or(observe_client_name(event), UNKNOWN)
     });
+    let (first_ts, last_ts) = legacy_parsed_time_range(&log_events.events)
+        .unwrap_or_else(|| (aggregate.first_ts.clone(), aggregate.last_ts.clone()));
     let mut non_pass_events = log_events
         .events
         .iter()
@@ -139,8 +141,8 @@ fn render_legacy_health(
     output.push_str(&format!("{}\n", "=".repeat(44)));
     output.push_str(&format!(
         "Time range: {} ~ {}\n",
-        observe_blank_as_unknown(&aggregate.first_ts),
-        observe_blank_as_unknown(&aggregate.last_ts)
+        observe_blank_as_unknown(&first_ts),
+        observe_blank_as_unknown(&last_ts)
     ));
     output.push_str(&format!("Total triggers: {}\n", aggregate.event_count));
     output.push_str(&format!("Pass: {pass_count}\n"));
@@ -230,6 +232,20 @@ where
         observe_increment(&mut counts, mapper(event));
     }
     counts
+}
+
+fn legacy_parsed_time_range(events: &[Value]) -> Option<(String, String)> {
+    let mut timestamps = events
+        .iter()
+        .filter_map(|event| {
+            let ts = observe_string_field(event, field::TS);
+            parse_iso_ts(&ts).map(|parsed| (parsed, ts))
+        })
+        .collect::<Vec<_>>();
+    timestamps.sort_by_key(|(parsed, _)| *parsed);
+    let first_ts = timestamps.first()?.1.clone();
+    let last_ts = timestamps.last()?.1.clone();
+    Some((first_ts, last_ts))
 }
 
 pub(super) fn observe_increment(map: &mut BTreeMap<String, u64>, key: String) {

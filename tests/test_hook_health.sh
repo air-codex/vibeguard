@@ -149,13 +149,15 @@ assert_not_contains "${missing_scope_out}" "global-only" "Missing project log do
 
 header "Health snapshot of the last 24 hours"
 mkdir -p "${TMP_DIR}/log"
-python3 - "${TMP_DIR}/log/events.jsonl" <<'PY'
+python3 - "${TMP_DIR}/log/events.jsonl" "${TMP_DIR}/log/expected-range.txt" <<'PY'
 import json
 import sys
 from datetime import datetime, timedelta, timezone
 
-path = sys.argv[1]
+path, expected_range_path = sys.argv[1:3]
 now = datetime.now(timezone.utc)
+oldest_in_window = (now - timedelta(hours=3)).isoformat().replace("+00:00", "Z")
+latest_in_window = (now - timedelta(minutes=30)).isoformat().replace("+00:00", "Z")
 recent_utc = now - timedelta(minutes=40)
 older_offset = (recent_utc - timedelta(minutes=15)).astimezone(timezone(timedelta(hours=1)))
 
@@ -183,7 +185,7 @@ events = [
         "client": "codex",
     },
     {
-        "ts": (now - timedelta(hours=3)).isoformat().replace("+00:00", "Z"),
+        "ts": oldest_in_window,
         "session": "s3",
         "hook": "pre-bash-guard",
         "tool": "Bash",
@@ -192,7 +194,7 @@ events = [
         "detail": "echo hi > notes.md",
     },
     {
-        "ts": (now - timedelta(minutes=30)).isoformat().replace("+00:00", "Z"),
+        "ts": latest_in_window,
         "session": "s4",
         "hook": "post-edit-guard",
         "tool": "Edit",
@@ -232,10 +234,19 @@ events = [
 with open(path, "w", encoding="utf-8") as f:
     for event in events:
         f.write(json.dumps(event, ensure_ascii=False) + "\n")
+with open(expected_range_path, "w", encoding="utf-8") as f:
+    f.write(oldest_in_window + "\n")
+    f.write(latest_in_window + "\n")
+    f.write(older_offset.isoformat() + "\n")
 PY
 
 health_out="$(VIBEGUARD_LOG_DIR="${TMP_DIR}/log" bash "${SCRIPT}" --scope global 24 2>&1)"
+expected_first_ts="$(sed -n '1p' "${TMP_DIR}/log/expected-range.txt")"
+expected_last_ts="$(sed -n '2p' "${TMP_DIR}/log/expected-range.txt")"
+lexically_late_offset_ts="$(sed -n '3p' "${TMP_DIR}/log/expected-range.txt")"
 assert_contains "${health_out}" "VibeGuard Hook Health (last 24 hours)" "Title is correct"
+assert_contains "${health_out}" "Time range: ${expected_first_ts} ~ ${expected_last_ts}" "Time range is ordered by parsed timestamp"
+assert_not_contains "${health_out}" "Time range: ${expected_first_ts} ~ ${lexically_late_offset_ts}" "Time range does not use lexicographic offset order"
 assert_contains "${health_out}" "Total triggers: 6" "Filter out events within 24 hours"
 assert_contains "${health_out}" "Pass: 1" "Pass statistics are correct"
 assert_contains "${health_out}" "Risk (non-pass): 5" "Risk statistics are correct"
