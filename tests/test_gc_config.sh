@@ -11,6 +11,7 @@ FAIL=0
 TOTAL=0
 TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
+cargo build --manifest-path "$REPO_DIR/vibeguard-runtime/Cargo.toml" >/dev/null
 
 green() { printf '\033[32m  PASS: %s\033[0m\n' "$1"; }
 red()   { printf '\033[31m  FAIL: %s\033[0m\n' "$1"; }
@@ -78,6 +79,20 @@ assert_contains "$env_out" "9" "environment override wins over project config"
 
 missing_out="$(VIBEGUARD_PROJECT_CONFIG="${TMP_ROOT}/missing.json" bash -c 'source scripts/lib/project_config.sh; vg_config_positive_int VIBEGUARD_GC_LOG_THRESHOLD_MB gc.log_threshold_mb 10')"
 assert_contains "$missing_out" "10" "missing config falls back to default"
+
+stale_runtime="${TMP_ROOT}/stale-runtime"
+cat > "$stale_runtime" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  project-config-validate) exit 0 ;;
+  *) exit 2 ;;
+esac
+SH
+chmod +x "$stale_runtime"
+stale_runtime_out="$(VIBEGUARD_PROJECT_CONFIG_RUNTIME="$stale_runtime" VIBEGUARD_PROJECT_CONFIG="$cfg" bash -c 'source scripts/lib/project_config.sh; vg_config_positive_int VIBEGUARD_GC_LOG_THRESHOLD_MB gc.log_threshold_mb 10')"
+assert_contains "$stale_runtime_out" "7" "helper skips runtimes missing project-config-value"
+
+assert_cmd "project config helper no longer shells out to python3" bash -c "! grep -q 'python3' scripts/lib/project_config.sh"
 
 bad_cfg="${TMP_ROOT}/bad-vibeguard.json"
 cat > "$bad_cfg" <<'JSON'
