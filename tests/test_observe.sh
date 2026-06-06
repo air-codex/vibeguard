@@ -150,6 +150,19 @@ human_out="$("${RUNTIME}" observe summary --days all --log-file "${EVENT_LOG}" -
 assert_contains "${human_out}" "VibeGuard observe summary" "human: summary has concise title"
 assert_contains "${human_out}" "Top hooks:" "human: summary includes top hooks"
 
+header "missing explicit log"
+missing_log="${TMP_DIR}/missing-events.jsonl"
+missing_out="$("${RUNTIME}" observe summary --json --log-file "${missing_log}" 2>&1)"
+missing_status=$?
+TOTAL=$((TOTAL + 1))
+if [[ "${missing_status}" -ne 0 ]] && printf '%s' "${missing_out}" | grep -qF -- "Log file does not exist: ${missing_log}"; then
+  green "missing explicit log fails loudly"
+  PASS=$((PASS + 1))
+else
+  red "missing explicit log should fail with path diagnostic"
+  FAIL=$((FAIL + 1))
+fi
+
 printf '\n'
 if [[ "$FAIL" -eq 0 ]]; then
   printf '\033[32mAll %d/%d tests passed\033[0m\n' "$PASS" "$TOTAL"
