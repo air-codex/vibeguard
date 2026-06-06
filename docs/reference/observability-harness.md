@@ -25,7 +25,7 @@ Project scope is the default for human diagnostics inside a git repository:
 ~/.vibeguard/projects/<project_hash>/.project-root
 ```
 
-Global scope is explicit:
+Hook event rows are also mirrored to the global aggregate log:
 
 ```text
 ~/.vibeguard/events.jsonl
@@ -33,8 +33,9 @@ Global scope is explicit:
 
 The project hash is derived from the git root path unless an existing
 `.project-root` mapping already binds that project to a log directory. Project
-scope answers "what happened in this project"; global scope answers
-"what happened across my VibeGuard installation."
+scope answers "what happened in this project"; explicit global queries answer
+"what happened across my VibeGuard installation." Use `--scope global` for
+global diagnostics instead of relying on the default project query path.
 
 ## Event Log Contract
 
