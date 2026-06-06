@@ -38,7 +38,5 @@ vg_resolve_runtime() {
 
 vg_runtime_supports_observe() {
   local candidate="$1"
-  local output
-  output="$("${candidate}" 2>&1 || true)"
-  grep -qE '(^|[[:space:]])observe([[:space:]]|$)' <<<"${output}"
+  "${candidate}" observe summary --legacy --days all --limit all --log-file /dev/null >/dev/null 2>&1
 }
