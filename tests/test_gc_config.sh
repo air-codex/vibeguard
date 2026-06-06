@@ -92,6 +92,19 @@ chmod +x "$stale_runtime"
 stale_runtime_out="$(VIBEGUARD_PROJECT_CONFIG_RUNTIME="$stale_runtime" VIBEGUARD_PROJECT_CONFIG="$cfg" bash -c 'source scripts/lib/project_config.sh; vg_config_positive_int VIBEGUARD_GC_LOG_THRESHOLD_MB gc.log_threshold_mb 10')"
 assert_contains "$stale_runtime_out" "7" "helper skips runtimes missing project-config-value"
 
+runtime_path_bin="${TMP_ROOT}/runtime-path-bin"
+mkdir -p "$runtime_path_bin"
+ln -s "$REPO_DIR/vibeguard-runtime/target/debug/vibeguard-runtime" "${runtime_path_bin}/vibeguard-runtime"
+runtime_command_out="$(PATH="${runtime_path_bin}:$PATH" VIBEGUARD_RUNTIME="vibeguard-runtime" VIBEGUARD_PROJECT_CONFIG="$cfg" bash -c 'source scripts/lib/project_config.sh; vg_config_positive_int VIBEGUARD_GC_LOG_THRESHOLD_MB gc.log_threshold_mb 10')"
+assert_contains "$runtime_command_out" "7" "helper resolves VIBEGUARD_RUNTIME command name from PATH"
+
+path_only_root="${TMP_ROOT}/path-only-root"
+path_only_home="${TMP_ROOT}/path-only-home"
+mkdir -p "${path_only_root}/scripts/lib" "$path_only_home"
+cp "$REPO_DIR/scripts/lib/project_config.sh" "${path_only_root}/scripts/lib/project_config.sh"
+path_only_out="$(cd "$path_only_root" && PATH="${runtime_path_bin}:$PATH" HOME="$path_only_home" VIBEGUARD_PROJECT_CONFIG="$cfg" bash -c 'source scripts/lib/project_config.sh; vg_config_positive_int VIBEGUARD_GC_LOG_THRESHOLD_MB gc.log_threshold_mb 10')"
+assert_contains "$path_only_out" "7" "helper falls back to vibeguard-runtime on PATH"
+
 assert_cmd "project config helper no longer shells out to python3" bash -c "! grep -q 'python3' scripts/lib/project_config.sh"
 
 bad_cfg="${TMP_ROOT}/bad-vibeguard.json"

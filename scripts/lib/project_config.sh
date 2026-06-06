@@ -5,7 +5,7 @@ _VG_PROJECT_CONFIG_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _VG_PROJECT_CONFIG_ROOT="$(cd "${_VG_PROJECT_CONFIG_LIB_DIR}/../.." && pwd)"
 
 _vg_project_config_runtime_path() {
-  local candidate
+  local candidate resolved
   for candidate in \
     "${VIBEGUARD_PROJECT_CONFIG_RUNTIME:-}" \
     "${VIBEGUARD_RUNTIME:-}" \
@@ -13,13 +13,42 @@ _vg_project_config_runtime_path() {
     "${_VG_PROJECT_CONFIG_ROOT}/vibeguard-runtime/target/debug/vibeguard-runtime" \
     "${_VG_PROJECT_CONFIG_ROOT}/bin/vibeguard-runtime" \
     "${HOME}/.vibeguard/installed/bin/vibeguard-runtime"; do
-    if [[ -n "${candidate}" && -f "${candidate}" && -x "${candidate}" ]]; then
-      if _vg_project_config_runtime_supports "${candidate}"; then
-        printf '%s\n' "${candidate}"
+    if resolved="$(_vg_project_config_resolve_runtime_candidate "${candidate}")"; then
+      if _vg_project_config_runtime_supports "${resolved}"; then
+        printf '%s\n' "${resolved}"
         return 0
       fi
     fi
   done
+
+  if resolved="$(_vg_project_config_resolve_runtime_candidate "vibeguard-runtime")"; then
+    if _vg_project_config_runtime_supports "${resolved}"; then
+      printf '%s\n' "${resolved}"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+_vg_project_config_resolve_runtime_candidate() {
+  local candidate="${1:-}" resolved
+  if [[ -z "${candidate}" ]]; then
+    return 1
+  fi
+
+  if [[ -f "${candidate}" && -x "${candidate}" ]]; then
+    printf '%s\n' "${candidate}"
+    return 0
+  fi
+
+  if [[ "${candidate}" != */* ]] && resolved="$(command -v "${candidate}" 2>/dev/null)"; then
+    if [[ -n "${resolved}" && -x "${resolved}" ]]; then
+      printf '%s\n' "${resolved}"
+      return 0
+    fi
+  fi
+
   return 1
 }
 
