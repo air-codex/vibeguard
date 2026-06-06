@@ -82,7 +82,7 @@ pub(super) fn observe_event_json(event: &Value, slow_ms: u64) -> Value {
         field::DURATION_MS: observe_numeric_field(event, field::DURATION_MS),
         "client": observe_client_name(event),
         "diagnostic": observe_diagnostic_kind(event, slow_ms),
-        field::MODEL_CONTEXT: observe_is_attention_state(event),
+        field::MODEL_CONTEXT: observe_is_attention_state(event, slow_ms),
     })
 }
 
@@ -106,15 +106,11 @@ fn observe_effective_duration_ms(event: &Value) -> Option<u64> {
         .or_else(|| observe_numeric_field(event, field::ELAPSED_MS))
 }
 
-pub(super) fn observe_is_attention_state(event: &Value) -> bool {
-    let decision_value = observe_normalized_decision(event);
+pub(super) fn observe_is_attention_state(event: &Value, slow_ms: u64) -> bool {
+    let status_value = observe_normalized_status(event, slow_ms);
     matches!(
-        decision_value.as_str(),
-        decision::WARN
-            | decision::BLOCK
-            | decision::GATE
-            | decision::ESCALATE
-            | decision::CORRECTION
+        status_value.as_str(),
+        status::WARN | status::BLOCK | status::GATE | status::ESCALATE | status::CORRECTION
     )
 }
 
@@ -209,7 +205,7 @@ fn observe_client_name(event: &Value) -> String {
 }
 
 fn observe_is_attention_or_diagnostic(event: &Value, slow_ms: u64) -> bool {
-    observe_is_attention_state(event) || observe_is_diagnostic_event(event, slow_ms)
+    observe_is_attention_state(event, slow_ms) || observe_is_diagnostic_event(event, slow_ms)
 }
 
 fn observe_diagnostic_kind(event: &Value, slow_ms: u64) -> &'static str {
@@ -332,6 +328,27 @@ mod tests {
         assert_eq!(rendered[field::STATUS], status::SLOW);
         assert_eq!(rendered["diagnostic"], "slow");
         assert_eq!(rendered[field::MODEL_CONTEXT], false);
+    }
+
+    #[test]
+    fn diagnostic_status_wins_over_warn_decision_for_model_context() {
+        let event = json!({
+            "ts":"2026-06-01T00:00:08Z",
+            "session":"s1",
+            "hook":"post-build-check",
+            "decision":"warn",
+            "status":"timeout",
+            "reason":"post-build-check timeout after 30s",
+            "duration_ms":30000
+        });
+
+        let rendered = observe_event_json(&event, 2_000);
+
+        assert_eq!(rendered[field::STATUS], status::TIMEOUT);
+        assert_eq!(rendered["diagnostic"], "timeout");
+        assert_eq!(rendered[field::MODEL_CONTEXT], false);
+        assert!(!observe_is_attention_state(&event, 2_000));
+        assert!(observe_is_diagnostic_event(&event, 2_000));
     }
 
     #[test]

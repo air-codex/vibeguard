@@ -57,7 +57,7 @@ pub(super) fn render_health(
     let diagnostics = observe_recent_events_json(
         &log_events.events,
         options.top,
-        |event| observe_is_diagnostic_event(event, options.slow_ms),
+        observe_is_diagnostic_event,
         options.slow_ms,
     );
     if options.json {
@@ -91,8 +91,12 @@ pub(super) fn render_session(
     aggregate: &ObserveAggregate,
 ) -> Result<String> {
     let session_id = options.session.as_deref().unwrap_or("");
-    let recent_events =
-        observe_recent_events_json(&log_events.events, options.top, |_| true, options.slow_ms);
+    let recent_events = observe_recent_events_json(
+        &log_events.events,
+        options.top,
+        |_, _| true,
+        options.slow_ms,
+    );
     let attention_states = observe_recent_events_json(
         &log_events.events,
         options.top,
@@ -102,7 +106,7 @@ pub(super) fn render_session(
     let diagnostics = observe_recent_events_json(
         &log_events.events,
         options.top,
-        |event| observe_is_diagnostic_event(event, options.slow_ms),
+        observe_is_diagnostic_event,
         options.slow_ms,
     );
     if options.json {
@@ -229,11 +233,11 @@ fn observe_recent_events_json<F>(
     slow_ms: u64,
 ) -> Vec<Value>
 where
-    F: Fn(&Value) -> bool,
+    F: Fn(&Value, u64) -> bool,
 {
     let mut selected = Vec::new();
     for event in events.iter().rev() {
-        if !predicate(event) {
+        if !predicate(event, slow_ms) {
             continue;
         }
         selected.push(observe_event_json(event, slow_ms));
