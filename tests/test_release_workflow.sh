@@ -79,6 +79,7 @@ assert_contains "$workflow_text" "refusing to mutate release assets" "existing r
 assert_contains "$workflow_text" "git merge-base --is-ancestor" "tag must be reachable from main"
 assert_contains "$workflow_text" "RUNTIME_VERSION_FILE" "workflow reads runtime VERSION file"
 assert_contains "$workflow_text" "release tag \${TAG_NAME} does not match" "tag/version mismatch fails loudly"
+assert_contains "$workflow_text" 'RUST_VERSION: "stable"' "release workflow uses latest stable Rust"
 assert_contains "$workflow_text" "sha256sum vibeguard-runtime-* | sort -k2 > SHA256SUMS" "checksums use deterministic sorted layout"
 assert_contains "$workflow_text" 'GH_REPO: ${{ github.repository }}' "publish job pins gh target repository"
 

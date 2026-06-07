@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.3] - 2026-06-08
+## [1.1.4] - 2026-06-08
 
 ### Added
 - Default setup now downloads the pinned `vibeguard-runtime` release binary on supported macOS and Linux targets, verifies it against `SHA256SUMS`, and keeps source builds available through `--build-from-source` or unsupported/offline fallback paths.
@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release publishing now pins `GH_REPO` so `gh release view` works in the publish job even when the job has no repository checkout.
 - Release workflow contract tests now assert the pinned release repository.
 - Setup regression coverage now includes checksum mismatch failures, `gh`-absent curl downloads, offline fallback, source-built to downloaded runtime switching, and runtime-version overrides.
+- Release workflow now builds runtime assets with the latest stable Rust toolchain.
 
 ### Changed
 - Install documentation no longer presents Rust/Cargo as a default requirement for supported macOS and Linux prebuilt-runtime targets.
@@ -263,7 +264,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `auto-optimize` workflow integrated into VibeGuard
 - `setup.sh` and install scripts for one-command installation
 
-[Unreleased]: https://github.com/majiayu000/vibeguard/compare/v1.1.3...HEAD
+[Unreleased]: https://github.com/majiayu000/vibeguard/compare/v1.1.4...HEAD
+[1.1.4]: https://github.com/majiayu000/vibeguard/compare/v1.1.2...v1.1.4
 [1.1.3]: https://github.com/majiayu000/vibeguard/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/majiayu000/vibeguard/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/majiayu000/vibeguard/compare/v1.1.0...v1.1.1

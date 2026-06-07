@@ -13,7 +13,7 @@ defaults:
     shell: bash
 
 env:
-  RUST_VERSION: "1.85.1"
+  RUST_VERSION: "stable"
   CROSS_VERSION: "0.2.5"
   RUNTIME_MANIFEST: vibeguard-runtime/Cargo.toml
   RUNTIME_VERSION_FILE: vibeguard-runtime/VERSION
