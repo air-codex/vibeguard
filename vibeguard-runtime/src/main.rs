@@ -51,6 +51,11 @@ struct Command {
 
 static COMMANDS: &[Command] = &[
     Command {
+        name: "version",
+        usage: "  — print the vibeguard-runtime package version",
+        handler: version,
+    },
+    Command {
         name: "json-field",
         usage: "<field_path>  — extract one field from stdin JSON",
         handler: json_field::run_field,
@@ -456,6 +461,14 @@ static COMMANDS: &[Command] = &[
         handler: setup_codex_hooks::codex_hooks_check_timeouts,
     },
 ];
+
+fn version(args: &[String]) -> HandlerResult {
+    if !args.is_empty() {
+        return Err("Usage: vibeguard-runtime version".into());
+    }
+    println!("{}", env!("CARGO_PKG_VERSION"));
+    Ok(())
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
