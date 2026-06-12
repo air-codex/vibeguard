@@ -85,6 +85,7 @@ pub(crate) fn is_test_path(path: &str) -> bool {
         || has_path_segment(&normalized, "testdata")
         || has_path_segment(&normalized, "examples")
         || has_path_segment(&normalized, "benches")
+        || has_path_segment_with_prefix(&normalized, "test_")
         || basename == "tests.rs"
         || basename == "test_helpers.rs"
         || basename.starts_with("test_")
@@ -96,6 +97,10 @@ pub(crate) fn is_test_path(path: &str) -> bool {
 
 fn has_path_segment(path: &str, segment: &str) -> bool {
     path.split('/').any(|part| part == segment)
+}
+
+fn has_path_segment_with_prefix(path: &str, prefix: &str) -> bool {
+    path.split('/').any(|part| part.starts_with(prefix))
 }
 
 pub(crate) fn is_allowed_new_file(path: &str) -> bool {
@@ -595,6 +600,8 @@ mod tests {
             "tests/integration.rs",
             "src/tests.rs",
             "src/test_helpers.rs",
+            "src/test_helpers/mod.rs",
+            "src/test_utils/helper.rs",
             "examples/demo.rs",
             "benches/throughput.rs",
             "test_root.rs",
@@ -604,6 +611,7 @@ mod tests {
             assert!(is_test_path(path), "{path} should be classified as test");
         }
         assert!(!is_test_path("src/contest.rs"));
+        assert!(!is_test_path("src/contest_helpers/mod.rs"));
         assert!(!is_test_path("src/prod_helpers.rs"));
     }
 
