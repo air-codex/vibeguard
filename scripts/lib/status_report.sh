@@ -92,13 +92,7 @@ status_optional_missing_line() {
   case "$plain" in
     *"ast-grep not installed"*|\
     *"agents not in ~/.claude/agents/"*|\
-    *"context profiles not in ~/.claude/context-profiles/"*|\
-    *" skill not in ~/.codex/skills/"*|\
-    *"VibeGuard hooks not fully configured in ~/.codex/hooks.json"*|\
-    *"Codex hooks.json not installed"*|\
-    *"Codex hook wrapper not installed"*|\
-    *"Codex hook wrapper: "*|\
-    *"hooks feature not enabled"*)
+    *"context profiles not in ~/.claude/context-profiles/"*)
       return 0
       ;;
     *)

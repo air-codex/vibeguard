@@ -42,7 +42,7 @@ header(){ printf '\n\033[1m=== %s ===\033[0m\n' "$1"; }
 assert_contains() {
   local output="$1" expected="$2" desc="$3"
   TOTAL=$((TOTAL + 1))
-  if printf '%s' "$output" | grep -qF -- "$expected"; then
+  if grep -qF -- "$expected" <<< "$output"; then
     green "$desc"; PASS=$((PASS + 1))
   else
     red "$desc (expected to contain: $expected)"; FAIL=$((FAIL + 1))
@@ -52,7 +52,7 @@ assert_contains() {
 assert_not_contains() {
   local output="$1" forbidden="$2" desc="$3"
   TOTAL=$((TOTAL + 1))
-  if printf '%s' "$output" | grep -qF -- "$forbidden"; then
+  if grep -qF -- "$forbidden" <<< "$output"; then
     red "$desc (must not contain: $forbidden)"; FAIL=$((FAIL + 1))
   else
     green "$desc"; PASS=$((PASS + 1))
@@ -155,9 +155,15 @@ assert_contains "$broken_summary" "BROKEN"       "broken: verdict is BROKEN"
 broken_rc="$(run_with_buffer "$broken_buf" 'status_exit_code')"
 assert_eq "$broken_rc" "2" "broken: exit code 2"
 
-optional_missing_buf=$'[OK] base\n[MISSING] ast-grep not installed — TS/Rust AST guards will SKIP\n[MISSING] agents not in ~/.claude/agents/\n[MISSING] Codex hooks.json not installed\n'
+optional_missing_buf=$'[OK] base\n[MISSING] ast-grep not installed — TS/Rust AST guards will SKIP\n[MISSING] agents not in ~/.claude/agents/\n[MISSING] context profiles not in ~/.claude/context-profiles/\n'
 optional_install_rc="$(run_with_buffer "$optional_missing_buf" 'status_install_exit_code')"
 assert_eq "$optional_install_rc" "0" "install mode: optional missing rows do not fail"
+codex_required_missing_buf=$'[OK] base\n[MISSING] Codex hooks.json not installed\n[MISSING] Codex hook wrapper not installed\n[MISSING] hooks feature not enabled in ~/.codex/config.toml\n'
+codex_required_install_rc="$(run_with_buffer "$codex_required_missing_buf" 'status_install_exit_code')"
+assert_eq "$codex_required_install_rc" "2" "install mode: Codex missing rows fail"
+codex_skill_missing_buf=$'[OK] base\n[MISSING] vibeguard skill not in ~/.codex/skills/\n'
+codex_skill_install_rc="$(run_with_buffer "$codex_skill_missing_buf" 'status_install_exit_code')"
+assert_eq "$codex_skill_install_rc" "2" "install mode: Codex skill missing rows fail"
 required_missing_buf=$'[OK] base\n[MISSING] vibeguard-runtime runtime binary (~/.vibeguard/installed/bin/vibeguard-runtime)\n'
 required_install_rc="$(run_with_buffer "$required_missing_buf" 'status_install_exit_code')"
 assert_eq "$required_install_rc" "2" "install mode: required missing rows still fail"
