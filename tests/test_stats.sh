@@ -127,6 +127,19 @@ exit 2
 SH
 chmod +x "${export_observe_runtime}"
 
+full_observe_runtime="${TMP_DIR}/full-observe-runtime"
+cat > "${full_observe_runtime}" <<'SH'
+#!/usr/bin/env bash
+if [[ "$*" == "observe summary --legacy --days all --limit all --log-file /dev/null" ]]; then
+  exit 0
+fi
+if [[ "$*" == "observe export prometheus --since all --input-file /dev/null" ]]; then
+  exit 0
+fi
+exit 2
+SH
+chmod +x "${full_observe_runtime}"
+
 assert_cmd_fails "Probe rejects runtimes without legacy observe options" \
   vg_runtime_supports_observe "${old_observe_runtime}"
 assert_cmd "Probe accepts runtimes with legacy observe options" \
@@ -157,6 +170,17 @@ selected_export_runtime="$(
   ' bash "${REPO_DIR}/scripts/lib/runtime.sh" "${resolver_repo}"
 )"
 assert_contains "${selected_export_runtime}" "${resolver_repo}/vibeguard-runtime/target/debug/vibeguard-runtime" "Resolver accepts repo runtime for exporter without legacy stats support"
+
+resolver_full_home="${TMP_DIR}/resolver-full-home"
+mkdir -p "${resolver_full_home}/.vibeguard/installed/bin"
+cp "${full_observe_runtime}" "${resolver_full_home}/.vibeguard/installed/bin/vibeguard-runtime"
+selected_installed_export_runtime="$(
+  env -u VIBEGUARD_RUNTIME HOME="${resolver_full_home}" bash -c '
+    source "$1"
+    vg_resolve_runtime "$2" observe_export_prometheus
+  ' bash "${REPO_DIR}/scripts/lib/runtime.sh" "${resolver_repo}"
+)"
+assert_contains "${selected_installed_export_runtime}" "${resolver_full_home}/.vibeguard/installed/bin/vibeguard-runtime" "Resolver prefers installed runtime when capability matches"
 
 header "Project and explicit log scope"
 SCOPE_ROOT="${TMP_DIR}/scope"
