@@ -48,12 +48,38 @@ setup_runtime_path() {
   return 1
 }
 
+setup_runtime_expected_version() {
+  local version version_file
+  version="${VIBEGUARD_SETUP_RUNTIME_VERSION:-}"
+  if [[ -z "${version}" ]]; then
+    version_file="${REPO_DIR}/vibeguard-runtime/VERSION"
+    [[ -f "${version_file}" ]] || return 1
+    version="$(tr -d '[:space:]' < "${version_file}")"
+  fi
+  [[ -n "${version}" ]] || return 1
+  case "${version}" in
+    v*) printf '%s\n' "${version#v}" ;;
+    *) printf '%s\n' "${version}" ;;
+  esac
+}
+
+setup_runtime_version_matches() {
+  local runtime="$1" expected actual
+  expected="$(setup_runtime_expected_version)" || return 1
+  actual="$("${runtime}" version 2>/dev/null)" || return 1
+  actual="${actual%%$'\n'*}"
+  actual="${actual//$'\r'/}"
+  [[ "${actual}" == "${expected}" ]]
+}
+
 setup_runtime_supports() {
   local runtime="$1" probe_state="${TMPDIR:-/tmp}/vibeguard-runtime-probe.$$.json"
   "${runtime}" setup-state-list-symlinks-under "${probe_state}" "${TMPDIR:-/tmp}" >/dev/null 2>&1 || return 1
+  setup_runtime_version_matches "${runtime}" || return 1
 
   local command probe_out
   for command in \
+    version \
     setup-manifest-skill-links \
     setup-md-remove \
     setup-settings-check \

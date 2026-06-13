@@ -53,6 +53,17 @@ assert_not_contains() {
   fi
 }
 
+ensure_runtime_tag_available() {
+  local tag="$1"
+  if git -C "${REPO_DIR}" rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+    return 0
+  fi
+  if git -C "${REPO_DIR}" remote get-url origin >/dev/null 2>&1; then
+    git -C "${REPO_DIR}" fetch --quiet --depth=1 origin "refs/tags/${tag}:refs/tags/${tag}" >/dev/null 2>&1 || true
+  fi
+  git -C "${REPO_DIR}" rev-parse -q --verify "refs/tags/${tag}" >/dev/null
+}
+
 workflow_text="$(<"${WORKFLOW}")"
 runtime_version="$(tr -d '[:space:]' < "${VERSION_FILE}")"
 cargo_version="$(
@@ -101,6 +112,20 @@ if [[ "${runtime_version}" == "${cargo_version}" ]]; then
 else
   red "runtime VERSION mismatch (VERSION=${runtime_version}, Cargo.toml=${cargo_version})"
   FAIL=$((FAIL + 1))
+fi
+runtime_tag="v${runtime_version}"
+TOTAL=$((TOTAL + 1))
+if ensure_runtime_tag_available "${runtime_tag}"; then
+  if git -C "${REPO_DIR}" diff --quiet "${runtime_tag}..HEAD" -- vibeguard-runtime; then
+    green "runtime VERSION tag has no newer runtime source changes"
+    PASS=$((PASS + 1))
+  else
+    red "runtime source changed since ${runtime_tag}; bump vibeguard-runtime/VERSION and Cargo.toml before merging"
+    FAIL=$((FAIL + 1))
+  fi
+else
+  green "runtime VERSION does not reuse an existing release tag"
+  PASS=$((PASS + 1))
 fi
 
 printf '\n==============================\n'

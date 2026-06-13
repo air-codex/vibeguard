@@ -25,10 +25,26 @@ fn unknown_command_exits_2() {
 }
 
 #[test]
+fn version_prints_package_version() {
+    let out = bin().arg("version").output().unwrap();
+    assert!(out.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout).trim(),
+        env!("CARGO_PKG_VERSION")
+    );
+    assert!(
+        out.stderr.is_empty(),
+        "expected empty stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
 fn help_lists_all_commands() {
     let out = bin().output().unwrap();
     let stderr = String::from_utf8_lossy(&out.stderr);
     for name in &[
+        "version",
         "json-field",
         "json-bool-field",
         "json-two-fields",

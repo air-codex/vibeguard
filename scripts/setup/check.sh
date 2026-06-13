@@ -217,6 +217,29 @@ _check_installed_snapshot_version() {
   green "[OK] Installed hooks+guards snapshot matches repo HEAD (${repo_version})"
 }
 
+_check_installed_runtime_version() {
+  local runtime_path="${HOME}/.vibeguard/installed/bin/vibeguard-runtime"
+  local expected actual
+
+  expected="$(setup_runtime_expected_version 2>/dev/null)" || {
+    red "[BROKEN] Runtime VERSION could not be resolved (${REPO_DIR}/vibeguard-runtime/VERSION)"
+    return 0
+  }
+  actual="$("${runtime_path}" version 2>/dev/null)" || {
+    red "[BROKEN] vibeguard-runtime cannot self-report version; run: bash setup.sh --yes"
+    return 0
+  }
+  actual="${actual%%$'\n'*}"
+  actual="${actual//$'\r'/}"
+
+  if [[ "${actual}" != "${expected}" ]]; then
+    red "[BROKEN] vibeguard-runtime version mismatch: ${actual:-unknown} (expected: ${expected}; run: bash setup.sh --yes)"
+    return 0
+  fi
+
+  green "[OK] vibeguard-runtime version matches repo VERSION (${expected})"
+}
+
 # run_legacy_checks
 #   The original sequence of inline probes. Each probe prints a single
 #   `[LEVEL] message` line via green/yellow/red. We do not reorder or
@@ -239,6 +262,7 @@ run_legacy_checks() {
   fi
   if [[ -x "${VIBEGUARD_HOME}/installed/bin/vibeguard-runtime" ]]; then
     green "[OK] vibeguard-runtime runtime binary installed"
+    _check_installed_runtime_version
     _check_installed_snapshot_version
   else
     red "[MISSING] vibeguard-runtime runtime binary (~/.vibeguard/installed/bin/vibeguard-runtime)"

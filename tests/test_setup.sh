@@ -469,6 +469,10 @@ cat > "${asset}" <<SH
 #!/usr/bin/env bash
 set -euo pipefail
 REAL_RUNTIME="${REPO_DIR}/vibeguard-runtime/target/debug/vibeguard-runtime"
+if [[ "\${1:-}" == "version" && -n "\${VIBEGUARD_SETUP_RUNTIME_VERSION:-}" ]]; then
+  printf '%s\n' "\${VIBEGUARD_SETUP_RUNTIME_VERSION#v}"
+  exit 0
+fi
 if [[ -x "\${REAL_RUNTIME}" ]]; then
   exec "\${REAL_RUNTIME}" "\$@"
 fi

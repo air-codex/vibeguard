@@ -346,10 +346,16 @@ assert_cmd "setup install removes tracked retired Claude skill" test ! -L "${HOM
 assert_cmd "setup install removes tracked retired Codex skill" test ! -L "${HOME}/.codex/skills/old-flow"
 assert_cmd "vg shortcut commands are installed after setup" test -L "${HOME}/.claude/commands/vg"
 assert_cmd "vibeguard-runtime binary installed after setup" test -x "${HOME}/.vibeguard/installed/bin/vibeguard-runtime"
+assert_cmd "vibeguard-runtime version matches VERSION after setup" bash -c '
+  runtime="$1"
+  version_file="$2"
+  [[ "$("${runtime}" version)" == "$(tr -d "[:space:]" < "${version_file}")" ]]
+' _ "${HOME}/.vibeguard/installed/bin/vibeguard-runtime" "${REPO_DIR}/vibeguard-runtime/VERSION"
 assert_cmd "runtime policy project schema installed after setup" test -f "${HOME}/.vibeguard/installed/schemas/vibeguard-project.schema.json"
 printf '{"profile":"core"}\n' > "${TMP_HOME}/valid-project-config.json"
 assert_cmd "runtime policy project validator moved into runtime" "${HOME}/.vibeguard/installed/bin/vibeguard-runtime" project-config-validate "${TMP_HOME}/valid-project-config.json"
 assert_cmd "runtime policy Python project validator not installed after setup" test ! -e "${HOME}/.vibeguard/installed/scripts/lib/project_config_validate.py"
+assert_contains "${install_out}" "[OK] vibeguard-runtime version matches repo VERSION" "setup install reports runtime version health"
 assert_contains "${install_out}" "[OK] Installed hooks+guards snapshot matches repo HEAD" "setup install reports current installed snapshot"
 assert_contains "${install_out}" "~/.vibeguard/config.json present (preserved)" "setup preserves seeded runtime config during install"
 assert_cmd "pre-push wrapper is installed after setup" test -x "${HOME}/.vibeguard/pre-push"
@@ -357,6 +363,7 @@ assert_cmd "repo pre-commit hook is installed after setup" assert_repo_git_hook_
 assert_cmd "repo pre-push hook is installed after setup" assert_repo_git_hook_target "pre-push" "${HOME}/.vibeguard/pre-push"
 default_scheduler_check_out="$(bash "${REPO_DIR}/setup.sh" --check)"
 assert_contains "${default_scheduler_check_out}" "[INFO] Scheduled GC not installed (optional, opt in: bash setup.sh --yes --with-scheduler)" "--check reports absent scheduled GC as INFO"
+assert_contains "${default_scheduler_check_out}" "[OK] vibeguard-runtime version matches repo VERSION" "--check reports runtime version health"
 assert_not_contains "${default_scheduler_check_out}" "[WARN] Scheduled GC" "--check does not warn when scheduled GC is absent"
 scheduler_fail_home="${TMP_HOME}/scheduler-enable-fail-home"
 mkdir -p "${scheduler_fail_home}"
@@ -396,6 +403,36 @@ cp "${tracked_snapshot_backup}" "${tracked_snapshot_file}"
 restored_snapshot_check_out="$(bash "${REPO_DIR}/setup.sh" --check)"
 assert_contains "${restored_snapshot_check_out}" "[OK] Total tracked:" "--check reports clean install state after restoring tracked snapshot file"
 assert_not_contains "${restored_snapshot_check_out}" "DRIFT: ${tracked_snapshot_file}" "--check stops reporting installed snapshot drift after restore"
+runtime_backup="${TMP_HOME}/installed-vibeguard-runtime.backup"
+cp "${HOME}/.vibeguard/installed/bin/vibeguard-runtime" "${runtime_backup}"
+cat > "${HOME}/.vibeguard/installed/bin/vibeguard-runtime" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  version)
+    printf '0.0.0\n'
+    ;;
+  setup-state-list-symlinks-under)
+    ;;
+  setup-state-check-drift)
+    printf 'STATUS: CLEAN\n'
+    printf 'Total tracked: 1\n'
+    ;;
+  setup-state-list)
+    printf 'Profile: core\n'
+    ;;
+  *)
+    ;;
+esac
+SH
+chmod +x "${HOME}/.vibeguard/installed/bin/vibeguard-runtime"
+set +e
+mismatched_runtime_check_out="$(bash "${REPO_DIR}/setup.sh" --check --strict 2>&1)"
+mismatched_runtime_check_rc=$?
+set -e
+assert_cmd "--check --strict exits broken for mismatched runtime version" test "${mismatched_runtime_check_rc}" -eq 2
+assert_contains "${mismatched_runtime_check_out}" "[BROKEN] vibeguard-runtime version mismatch: 0.0.0" "--check reports mismatched runtime version"
+cp "${runtime_backup}" "${HOME}/.vibeguard/installed/bin/vibeguard-runtime"
 printf 'oldsha\n' > "${HOME}/.vibeguard/installed/version"
 stale_snapshot_check_out="$(bash "${REPO_DIR}/setup.sh" --check --strict 2>&1 || true)"
 assert_contains "${stale_snapshot_check_out}" "[WARN] Installed hooks+guards snapshot is stale: oldsha" "--check reports stale installed snapshot"

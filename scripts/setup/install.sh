@@ -90,6 +90,9 @@ if [[ "${RUNTIME_VERSION_OVERRIDE_SET}" == "1" && -z "${RUNTIME_VERSION_OVERRIDE
   red "ERROR: --runtime-version requires a non-empty value (e.g. v1.2.3)"
   exit 1
 fi
+if [[ "${RUNTIME_VERSION_OVERRIDE_SET}" == "1" ]]; then
+  export VIBEGUARD_SETUP_RUNTIME_VERSION="${RUNTIME_VERSION_OVERRIDE}"
+fi
 
 case "${PROFILE}" in
   minimal|core|full|strict) ;;
@@ -245,6 +248,34 @@ download_prebuilt_runtime() {
   green "  vibeguard-runtime downloaded and verified (${tag}, ${target})"
 }
 
+runtime_version_mismatch_reason() {
+  local runtime_path="$1" expected actual
+  expected="$(setup_runtime_expected_version 2>/dev/null)" || {
+    printf 'runtime VERSION could not be resolved'
+    return 1
+  }
+  actual="$("${runtime_path}" version 2>/dev/null)" || {
+    printf 'runtime does not support the version command'
+    return 1
+  }
+  actual="${actual%%$'\n'*}"
+  actual="${actual//$'\r'/}"
+  if [[ "${actual}" != "${expected}" ]]; then
+    printf 'runtime self-reported version %s, expected %s' "${actual:-unknown}" "${expected}"
+    return 1
+  fi
+  return 0
+}
+
+verify_prepared_runtime_version() {
+  local runtime_path="$1" reason
+  if reason="$(runtime_version_mismatch_reason "${runtime_path}")"; then
+    return 0
+  fi
+  red "  ERROR: prepared vibeguard-runtime is incompatible: ${reason}"
+  return 1
+}
+
 prepare_runtime_from_source() {
   local fallback_reason="${1:-}"
   if [[ -n "${fallback_reason}" ]]; then
@@ -275,6 +306,7 @@ prepare_runtime_from_source() {
     mkdir -p "${_INSTALL_TMP}/bin"
     cp "${runtime_binary}" "${_INSTALL_TMP}/bin/vibeguard-runtime"
     chmod +x "${_INSTALL_TMP}/bin/vibeguard-runtime"
+    verify_prepared_runtime_version "${_INSTALL_TMP}/bin/vibeguard-runtime" || exit 2
     rm -rf "${runtime_target_dir}"
     green "  vibeguard-runtime binary prepared from source"
   else
@@ -305,6 +337,14 @@ prepare_runtime_binary() {
   download_rc=0
   download_prebuilt_runtime "${target}" "${tag}" "${_INSTALL_TMP}/bin/vibeguard-runtime" || download_rc=$?
   if [[ "${download_rc}" -eq 0 ]]; then
+    if verify_prepared_runtime_version "${_INSTALL_TMP}/bin/vibeguard-runtime"; then
+      return
+    fi
+    if [[ "${RUNTIME_VERSION_OVERRIDE_SET}" == "1" ]]; then
+      exit 2
+    fi
+    rm -f "${_INSTALL_TMP}/bin/vibeguard-runtime"
+    prepare_runtime_from_source "downloaded runtime does not match repo runtime VERSION"
     return
   fi
   if [[ "${download_rc}" -eq 10 ]]; then
