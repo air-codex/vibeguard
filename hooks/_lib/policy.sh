@@ -123,11 +123,6 @@ vg_policy_resolve_cwd() {
     printf '%s\n' "${candidate}"
     return 0
   fi
-  candidate="$(vg_policy_git_root)"
-  if [[ -n "${candidate}" ]]; then
-    printf '%s\n' "${candidate}"
-    return 0
-  fi
   pwd -P 2>/dev/null || pwd
 }
 
