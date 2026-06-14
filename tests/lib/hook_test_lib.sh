@@ -142,11 +142,13 @@ case "$command" in
   runtime-policy-supports)
     ;;
   runtime-policy-check)
+    cwd=""
     hook_name=""
     while [[ $# -gt 0 ]]; do
       case "${1:-}" in
         --cwd)
           shift
+          cwd="${1:-}"
           [[ $# -gt 0 ]] && shift
           ;;
         *)
@@ -155,7 +157,7 @@ case "$command" in
           ;;
       esac
     done
-    printf '{"decision":"run","enforcement":"block","hook":"%s","profile":"core","config_path":null,"reason":null}\n' "${hook_name:-unknown}"
+    printf '{"decision":"run","enforcement":"block","hook":"%s","profile":"core","config_path":null,"cwd":"%s","reason":null}\n' "${hook_name:-unknown}" "${cwd}"
     ;;
   append-jsonl-mirror)
     primary_file="${1:?append-jsonl-mirror requires a primary file path}"
@@ -216,6 +218,73 @@ PY
     ;;
   *)
     cat >/dev/null || true
+    ;;
+esac
+STUB
+  chmod +x "$runtime"
+}
+
+hook_test_write_policy_runtime_probe_stub() {
+  local runtime="$1"
+  cat > "$runtime" <<'STUB'
+#!/usr/bin/env bash
+set -euo pipefail
+
+command="${1:-}"
+shift || true
+
+log_probe() {
+  [[ -z "${VG_STUB_LOG:-}" ]] || printf '%s\n' "$1" >>"${VG_STUB_LOG}"
+}
+
+case "$command" in
+  runtime-policy-supports)
+    log_probe "supports"
+    ;;
+  runtime-policy-check)
+    if [[ "${VG_STUB_STALE_PROTOCOL:-0}" == "1" ]]; then
+      if [[ "$#" -ne 1 || "${1:-}" == --* ]]; then
+        printf 'Usage: vibeguard-runtime runtime-policy-check <hook-name>\n' >&2
+        exit 2
+      fi
+      exit 0
+    fi
+    log_probe "check:runtime-policy-check $*"
+    cwd=""
+    hook_name=""
+    while [[ $# -gt 0 ]]; do
+      case "${1:-}" in
+        --cwd)
+          shift
+          cwd="${1:-}"
+          shift || true
+          ;;
+        *)
+          hook_name="$1"
+          shift
+          ;;
+      esac
+    done
+    printf '{"decision":"run","enforcement":"%s","hook":"%s","profile":"core","config_path":null,"cwd":"%s","reason":"compat text says enforcement=warn"}\n' "${VG_STUB_ENFORCEMENT:-block}" "${hook_name:-unknown}" "${cwd}"
+    ;;
+  json-field)
+    log_probe "json-field:$*"
+    exec "${REAL_RUNTIME:?}" json-field "$@"
+    ;;
+  runtime-policy-downgrade-output)
+    log_probe "downgrade"
+    exec "${REAL_RUNTIME:?}" runtime-policy-downgrade-output
+    ;;
+  runtime-policy-codex-error)
+    log_probe "codex-error:$*"
+    exec "${REAL_RUNTIME:?}" runtime-policy-codex-error "$@"
+    ;;
+  runtime-policy-diag)
+    log_probe "diag:$*"
+    exec "${REAL_RUNTIME:?}" runtime-policy-diag "$@"
+    ;;
+  *)
+    exit 2
     ;;
 esac
 STUB

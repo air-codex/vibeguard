@@ -38,41 +38,7 @@ assert_empty_success() {
 
 header "runtime policy — structured JSON parsing"
 json_policy_runtime="${WORK_DIR}/json-policy-runtime"
-cat > "${json_policy_runtime}" <<'SH'
-#!/usr/bin/env bash
-command="${1:-}"
-shift || true
-case "${command}" in
-  runtime-policy-supports)
-    exit 0
-    ;;
-  runtime-policy-check)
-    cwd=""
-    hook_name=""
-    while [[ $# -gt 0 ]]; do
-      case "${1:-}" in
-        --cwd)
-          shift
-          cwd="${1:-}"
-          shift || true
-          ;;
-        *)
-          hook_name="$1"
-          shift
-          ;;
-      esac
-    done
-    printf '{"decision":"run","enforcement":"%s","hook":"%s","profile":"core","config_path":null,"cwd":"%s","reason":"compat text says enforcement=warn"}\n' "${VG_STUB_ENFORCEMENT:-block}" "${hook_name:-unknown}" "${cwd}"
-    ;;
-  json-field|runtime-policy-downgrade-output|runtime-policy-codex-error|runtime-policy-diag)
-    exec "${REAL_RUNTIME:?}" "${command}" "$@"
-    ;;
-  *)
-    exit 2
-    ;;
-esac
-SH
-chmod +x "${json_policy_runtime}"
+hook_test_write_policy_runtime_probe_stub "${json_policy_runtime}"
 
 structured_block_out="$(
   WRAPPER_DIR="${REPO_DIR}/hooks" \
