@@ -113,8 +113,31 @@ explicit_runtime="${WORK_DIR}/explicit-runtime"
 cat > "${explicit_runtime}" <<'SH'
 #!/usr/bin/env bash
 case "${1:-}" in
-  runtime-policy-check)
+  runtime-policy-supports)
     exit 0
+    ;;
+  runtime-policy-check)
+    shift
+    cwd=""
+    hook_name=""
+    while [[ $# -gt 0 ]]; do
+      case "${1:-}" in
+        --cwd)
+          shift
+          cwd="${1:-}"
+          shift || true
+          ;;
+        *)
+          hook_name="$1"
+          shift
+          ;;
+      esac
+    done
+    printf '{"decision":"run","enforcement":"block","hook":"%s","profile":"core","config_path":null,"cwd":"%s","reason":null}\n' "${hook_name:-unknown}" "${cwd}"
+    ;;
+  json-field)
+    shift
+    exec "${REAL_RUNTIME:?}" json-field "$@"
     ;;
   runtime-policy-downgrade-output)
     printf '{"decision":"warn","reason":"probe"}\n'
@@ -132,7 +155,10 @@ esac
 SH
 chmod +x "${explicit_runtime}"
 resolver_out="$(
-  WRAPPER_DIR="${REPO_DIR}/hooks" VIBEGUARD_POLICY_RUNTIME="${explicit_runtime}" bash -c '
+  WRAPPER_DIR="${REPO_DIR}/hooks" \
+  VIBEGUARD_POLICY_RUNTIME="${explicit_runtime}" \
+  REAL_RUNTIME="${RUNTIME_BIN}" \
+  bash -c '
     source hooks/_lib/policy.sh
     vg_policy_runtime_path
   '
@@ -148,9 +174,44 @@ case "${1:-}" in
     printf 'supports\n' >>"${OPTIMIZED_PROBE_LOG:?}"
     exit 0
     ;;
-  runtime-policy-check|runtime-policy-downgrade-output|runtime-policy-codex-error|runtime-policy-diag)
-    printf 'unexpected:%s\n' "${1:-}" >>"${OPTIMIZED_PROBE_LOG:?}"
-    exit 70
+  runtime-policy-check)
+    printf 'check:%s\n' "$*" >>"${OPTIMIZED_PROBE_LOG:?}"
+    shift
+    cwd=""
+    hook_name=""
+    while [[ $# -gt 0 ]]; do
+      case "${1:-}" in
+        --cwd)
+          shift
+          cwd="${1:-}"
+          shift || true
+          ;;
+        *)
+          hook_name="$1"
+          shift
+          ;;
+      esac
+    done
+    printf '{"decision":"run","enforcement":"block","hook":"%s","profile":"core","config_path":null,"cwd":"%s","reason":null}\n' "${hook_name:-unknown}" "${cwd}"
+    ;;
+  json-field)
+    shift
+    printf 'json-field:%s\n' "$*" >>"${OPTIMIZED_PROBE_LOG:?}"
+    exec "${REAL_RUNTIME:?}" json-field "$@"
+    ;;
+  runtime-policy-downgrade-output)
+    printf 'downgrade\n' >>"${OPTIMIZED_PROBE_LOG:?}"
+    exec "${REAL_RUNTIME:?}" runtime-policy-downgrade-output
+    ;;
+  runtime-policy-codex-error)
+    shift
+    printf 'codex-error:%s\n' "$*" >>"${OPTIMIZED_PROBE_LOG:?}"
+    exec "${REAL_RUNTIME:?}" runtime-policy-codex-error "$@"
+    ;;
+  runtime-policy-diag)
+    shift
+    printf 'diag:%s\n' "$*" >>"${OPTIMIZED_PROBE_LOG:?}"
+    exec "${REAL_RUNTIME:?}" runtime-policy-diag "$@"
     ;;
   *)
     exit 2
@@ -161,15 +222,54 @@ chmod +x "${optimized_runtime}"
 resolver_out="$(
   WRAPPER_DIR="${REPO_DIR}/hooks" \
   VIBEGUARD_POLICY_RUNTIME="${optimized_runtime}" \
+  REAL_RUNTIME="${RUNTIME_BIN}" \
   OPTIMIZED_PROBE_LOG="${optimized_probe_log}" \
   bash -c '
     source hooks/_lib/policy.sh
     vg_policy_runtime_path
   '
 )"
-assert_contains "${resolver_out}" "${optimized_runtime}" "runtime policy resolver accepts batched support probe"
-assert_contains "$(cat "${optimized_probe_log}")" "supports" "runtime policy resolver calls batched support probe"
-assert_not_contains "$(cat "${optimized_probe_log}")" "unexpected:" "runtime policy resolver skips legacy semantic probes when batched probe passes"
+assert_contains "${resolver_out}" "${optimized_runtime}" "runtime policy resolver accepts support probe with cwd JSON protocol"
+assert_contains "$(cat "${optimized_probe_log}")" "supports" "runtime policy resolver calls support probe"
+assert_contains "$(cat "${optimized_probe_log}")" "check:runtime-policy-check --cwd" "runtime policy resolver probes runtime-policy-check --cwd"
+assert_contains "$(cat "${optimized_probe_log}")" "json-field:--strict decision" "runtime policy resolver validates structured decision JSON"
+assert_contains "$(cat "${optimized_probe_log}")" "json-field:--strict cwd" "runtime policy resolver validates structured cwd JSON"
+
+stale_protocol_runtime="${WORK_DIR}/stale-protocol-runtime"
+cat > "${stale_protocol_runtime}" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  runtime-policy-supports)
+    exit 0
+    ;;
+  runtime-policy-check)
+    shift
+    if [[ "$#" -ne 1 || "${1:-}" == --* ]]; then
+      printf 'Usage: vibeguard-runtime runtime-policy-check <hook-name>\n' >&2
+      exit 2
+    fi
+    exit 0
+    ;;
+  json-field|runtime-policy-downgrade-output|runtime-policy-codex-error|runtime-policy-diag)
+    exit 2
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+SH
+chmod +x "${stale_protocol_runtime}"
+resolver_out="$(
+  WRAPPER_DIR="${REPO_DIR}/hooks" \
+  VIBEGUARD_POLICY_RUNTIME="${stale_protocol_runtime}" \
+  VIBEGUARD_RUNTIME="${RUNTIME_BIN}" \
+  bash -c '
+    source hooks/_lib/policy.sh
+    vg_policy_runtime_path
+  '
+)"
+assert_not_contains "${resolver_out}" "${stale_protocol_runtime}" "runtime policy resolver rejects stale support probe without cwd JSON protocol"
+assert_contains "${resolver_out}" "${RUNTIME_BIN}" "runtime policy resolver falls through after stale support probe"
 
 resolver_home="${WORK_DIR}/home-resolver"
 mkdir -p "${resolver_home}/.vibeguard/installed/bin"
@@ -180,6 +280,7 @@ resolver_out="$(
   WRAPPER_DIR="${REPO_DIR}/hooks" \
   HOME="${resolver_home}" \
   VIBEGUARD_RUNTIME="${explicit_runtime}" \
+  REAL_RUNTIME="${RUNTIME_BIN}" \
   bash -c '
     source hooks/_lib/policy.sh
     vg_policy_runtime_path
@@ -193,6 +294,7 @@ cp "${explicit_runtime}" "${installed_wrapper_home}/.vibeguard/installed/bin/vib
 resolver_out="$(
   WRAPPER_DIR="${installed_wrapper_home}/.vibeguard" \
   HOME="${installed_wrapper_home}" \
+  REAL_RUNTIME="${RUNTIME_BIN}" \
   env -u VIBEGUARD_POLICY_RUNTIME -u VIBEGUARD_RUNTIME bash -c '
     source hooks/_lib/policy.sh
     vg_policy_runtime_path

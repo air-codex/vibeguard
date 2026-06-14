@@ -58,15 +58,36 @@ vg_policy_runtime_candidates() {
   fi
 }
 
+vg_policy_runtime_supports_cwd_json() {
+  local candidate="$1" probe_dir probe_output decision probe_cwd
+  probe_dir="$(mktemp -d "${TMPDIR:-/tmp}/vibeguard-policy-probe-cwd.XXXXXX")" || return 1
+  probe_output="$(
+    VIBEGUARD_PROJECT_CONFIG="" \
+      VIBEGUARD_USER_CONFIG_FILE="" \
+      "${candidate}" runtime-policy-check --cwd "${probe_dir}" __vibeguard_policy_probe__ 2>/dev/null
+  )" || {
+    rm -rf "${probe_dir}" 2>/dev/null || true
+    return 1
+  }
+  decision="$(printf '%s' "${probe_output}" | "${candidate}" json-field --strict decision 2>/dev/null)" || {
+    rm -rf "${probe_dir}" 2>/dev/null || true
+    return 1
+  }
+  probe_cwd="$(printf '%s' "${probe_output}" | "${candidate}" json-field --strict cwd 2>/dev/null)" || {
+    rm -rf "${probe_dir}" 2>/dev/null || true
+    return 1
+  }
+  rm -rf "${probe_dir}" 2>/dev/null || true
+  [[ "${decision}" == "run" && "${probe_cwd}" == "${probe_dir}" ]]
+}
+
 vg_policy_runtime_supports() {
   local candidate="$1" probe_diag downgrade_probe codex_probe
-  if "${candidate}" runtime-policy-supports >/dev/null 2>&1; then
-    return 0
+  if ! "${candidate}" runtime-policy-supports >/dev/null 2>&1; then
+    return 1
   fi
+  vg_policy_runtime_supports_cwd_json "${candidate}" || return 1
   probe_diag="${TMPDIR:-/tmp}/vibeguard-policy-probe.$$.jsonl"
-  VIBEGUARD_PROJECT_CONFIG="${TMPDIR:-/tmp}/vibeguard-missing-policy-probe.json" \
-    VIBEGUARD_USER_CONFIG_FILE="" \
-    "${candidate}" runtime-policy-check __vibeguard_policy_probe__ >/dev/null 2>&1 || return 1
   downgrade_probe="$(printf '{"decision":"block","reason":"probe"}' \
     | "${candidate}" runtime-policy-downgrade-output 2>/dev/null)" || return 1
   [[ "${downgrade_probe}" == *'"decision"'* && "${downgrade_probe}" == *'"warn"'* ]] || return 1

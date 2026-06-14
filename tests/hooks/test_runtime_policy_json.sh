@@ -47,8 +47,22 @@ case "${command}" in
     exit 0
     ;;
   runtime-policy-check)
-    hook_name="${*: -1}"
-    printf '{"decision":"run","enforcement":"%s","hook":"%s","profile":"core","config_path":null,"reason":"compat text says enforcement=warn"}\n' "${VG_STUB_ENFORCEMENT:-block}" "${hook_name}"
+    cwd=""
+    hook_name=""
+    while [[ $# -gt 0 ]]; do
+      case "${1:-}" in
+        --cwd)
+          shift
+          cwd="${1:-}"
+          shift || true
+          ;;
+        *)
+          hook_name="$1"
+          shift
+          ;;
+      esac
+    done
+    printf '{"decision":"run","enforcement":"%s","hook":"%s","profile":"core","config_path":null,"cwd":"%s","reason":"compat text says enforcement=warn"}\n' "${VG_STUB_ENFORCEMENT:-block}" "${hook_name:-unknown}" "${cwd}"
     ;;
   json-field|runtime-policy-downgrade-output|runtime-policy-codex-error|runtime-policy-diag)
     exec "${REAL_RUNTIME:?}" "${command}" "$@"
