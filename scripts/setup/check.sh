@@ -322,11 +322,11 @@ _check_project_git_hooks() {
 
   local project_root project_hook_dir
   if ! project_root="$(git rev-parse --show-toplevel 2>/dev/null)" || [[ -z "${project_root}" ]]; then
-    yellow "[INFO] Project git hooks not checked (not a git repository)"
+    red "[MISSING] Project git hooks not checked (not a git repository)"
     return 0
   fi
   if ! project_hook_dir="$(git -C "${project_root}" rev-parse --path-format=absolute --git-path hooks 2>/dev/null)" || [[ -z "${project_hook_dir}" ]]; then
-    yellow "[INFO] Project git hooks not checked (git hook path unavailable)"
+    red "[BROKEN] Project git hooks not checked (git hook path unavailable)"
     return 0
   fi
 

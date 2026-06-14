@@ -478,6 +478,23 @@ assert_eq "$project_legacy_json_rc" "2" "--check --json: missing project hooks e
 assert_contains "$project_legacy_json_out" "Project pre-commit hook" "--check --json: reports missing project pre-commit hook"
 assert_contains "$project_legacy_json_out" "Project pre-push hook" "--check --json: reports missing project pre-push hook"
 
+PROJECT_NON_GIT_DIR="$(mktemp -d)"
+project_non_git_out="$(cd "${PROJECT_NON_GIT_DIR}" && HOME="${PROJECT_HOOK_HOME}" bash "${SETUP_SCRIPT}" verify-project 2>&1)"
+project_non_git_rc=$?
+assert_eq "$project_non_git_rc" "2" "verify-project: non-git directory exits 2"
+assert_contains "$project_non_git_out" "[MISSING] Project git hooks not checked (not a git repository)" "verify-project: non-git directory fails visibly"
+
+project_non_git_strict_out="$(cd "${PROJECT_NON_GIT_DIR}" && HOME="${PROJECT_HOOK_HOME}" bash "${SETUP_SCRIPT}" --check --strict 2>&1)"
+project_non_git_strict_rc=$?
+assert_eq "$project_non_git_strict_rc" "2" "--check --strict: non-git directory exits 2"
+assert_contains "$project_non_git_strict_out" "Project git hooks not checked" "--check --strict: non-git directory fails visibly"
+
+project_non_git_json_out="$(cd "${PROJECT_NON_GIT_DIR}" && HOME="${PROJECT_HOOK_HOME}" bash "${SETUP_SCRIPT}" --check --json 2>&1)"
+project_non_git_json_rc=$?
+assert_eq "$project_non_git_json_rc" "2" "--check --json: non-git directory exits 2"
+assert_contains "$project_non_git_json_out" "Project git hooks not checked" "--check --json: non-git directory fails visibly"
+rm -rf "${PROJECT_NON_GIT_DIR}"
+
 project_hook_dir="$(git -C "${PROJECT_HOOK_REPO}" rev-parse --path-format=absolute --git-path hooks)"
 ln -sf "${PROJECT_HOOK_HOME}/.vibeguard/pre-commit" "${project_hook_dir}/pre-commit"
 ln -sf "${PROJECT_HOOK_HOME}/.vibeguard/pre-push" "${project_hook_dir}/pre-push"
