@@ -434,6 +434,16 @@ stale_verify_install_rc=$?
 assert_eq "$stale_verify_install_rc" "2" "verify-install: broken required state exits 2"
 assert_contains "$stale_verify_install_out" "stale Codex hook command" "verify-install: reports broken required hook state"
 
+INVALID_PROJECT_DIR="$(mktemp -d)"
+printf '{bad json\n' > "${INVALID_PROJECT_DIR}/.vibeguard.json"
+install_invalid_project_out="$(cd "${INVALID_PROJECT_DIR}" && HOME="${STALE_HOOK_HOME}" bash "${SETUP_SCRIPT}" verify-install 2>&1)"
+assert_contains "$install_invalid_project_out" "Project config not checked in install verification mode" "verify-install: skips project config validation"
+assert_not_contains "$install_invalid_project_out" "Project config invalid" "verify-install: project config does not affect install health"
+
+project_invalid_config_out="$(cd "${INVALID_PROJECT_DIR}" && HOME="${STALE_HOOK_HOME}" bash "${SETUP_SCRIPT}" verify-project 2>&1)"
+assert_contains "$project_invalid_config_out" "Project config invalid" "verify-project: still validates project config"
+rm -rf "${INVALID_PROJECT_DIR}"
+
 HOME="${STALE_HOOK_HOME}" python3 "${REPO_DIR}/scripts/lib/settings_json.py" upsert-vibeguard \
   --settings-file "${STALE_HOOK_HOME}/.claude/settings.json" \
   --repo-dir "${REPO_DIR}" \

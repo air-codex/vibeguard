@@ -462,17 +462,21 @@ run_legacy_checks() {
   echo
   echo "Project Config"
   echo "------------------------------"
-  project_config_file="$(vg_project_config_file)"
-  if [[ -z "${project_config_file}" || ! -f "${project_config_file}" ]]; then
-    yellow "[INFO] No project config found (.vibeguard.json optional)"
+  if [[ "${INSTALL}" -eq 1 && "${PROJECT}" -ne 1 ]]; then
+    yellow "[INFO] Project config not checked in install verification mode (use verify-project for project health)"
   else
-    if project_config_out="$(vg_validate_project_config "${project_config_file}" 2>&1)"; then
-      green "[OK] Project config valid (${project_config_file})"
+    project_config_file="$(vg_project_config_file)"
+    if [[ -z "${project_config_file}" || ! -f "${project_config_file}" ]]; then
+      yellow "[INFO] No project config found (.vibeguard.json optional)"
     else
-      red "[FAIL] Project config invalid (${project_config_file})"
-      while IFS= read -r line; do
-        red "  ${line}"
-      done <<< "${project_config_out}"
+      if project_config_out="$(vg_validate_project_config "${project_config_file}" 2>&1)"; then
+        green "[OK] Project config valid (${project_config_file})"
+      else
+        red "[FAIL] Project config invalid (${project_config_file})"
+        while IFS= read -r line; do
+          red "  ${line}"
+        done <<< "${project_config_out}"
+      fi
     fi
   fi
 
